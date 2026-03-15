@@ -1,0 +1,33 @@
+# OS files
+.DS_Store
+Thumbs.db
+*.identifier
+*:Zone.Identifier
+
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Local Environment
+.env
+
+# Agent
+.agents/
+.claude/
+tasks/
+GEMINI.md
+CLAUDE.md
+AGENTS.md
+
+# Tooling
+.clasp.json
+.claspignore
+.clasprc.json
+*.gsheet
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
