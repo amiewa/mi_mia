@@ -1,0 +1,16 @@
+{
+  "name": "mi_mia",
+  "version": "2.0.0",
+  "description": "mi_mia v2 GAS project",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint .",
+    "push": "clasp push",
+    "pull": "clasp pull"
+  },
+  "devDependencies": {
+    "@types/google-apps-script": "^1.0.83",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5"
+  }
+}
