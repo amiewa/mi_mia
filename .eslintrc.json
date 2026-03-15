@@ -33,7 +33,9 @@
     "isAIDailyLimitReached": "readonly",
     "getCharacterPrompt_": "readonly",
     "getAffinityRank_": "readonly",
-    "getFallbackReply_": "readonly"
+    "getFallbackReply_": "readonly",
+    "getConversationHistory_": "readonly",
+    "saveConversationTurn_": "readonly"
   },
   "parserOptions": {
     "ecmaVersion": 2020,

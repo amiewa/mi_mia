@@ -695,6 +695,8 @@ function cleanupProperties_(config) {
           props.deleteProperty(key);
         }
       }
+      // 会話履歴: CONV_{userId} — PropertiesService の容量圧迫を防ぐため
+      // 全体サイズが大きい場合は別途削除対象とするが、通常は保持する（最新N件のみ保存設計のため）
     }
   } catch (e) {
     logError('cleanupProperties_', e.message);
