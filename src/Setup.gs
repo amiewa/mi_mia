@@ -85,7 +85,8 @@ function setupSpreadsheet() {
         ['MAINTENANCE_DELETE_INTERVAL_SECONDS', '2', '削除API間隔（秒）'],
         ['MAINTENANCE_DELETE_MAX_RETRIES', '3', '削除リトライ回数'],
         ['ERROR_NOTIFY_ENABLED', 'FALSE', 'エラーメール通知'],
-        ['ERROR_NOTIFY_EMAIL', '', '通知先メールアドレス']
+        ['ERROR_NOTIFY_EMAIL', '', '通知先メールアドレス'],
+        ['CONV_MAX_TURNS', '3', '会話履歴の保持ターン数 (0=無効)']
       ]
     },
     {

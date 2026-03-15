@@ -160,7 +160,17 @@ function handleMention(body, config) {
   var nowStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy年M月d日 H時');
   systemPrompt += '\n\n現在: ' + nowStr;
 
-  var userPrompt = '以下のメッセージに短く返信してください（100文字以内）:\n\n' + cleanedText;
+  // 会話履歴の取得（マルチターン）
+  var maxTurns = parseInt(config.CONV_MAX_TURNS) || 3;
+  var history = getConversationHistory_(userId, maxTurns);
+
+  var userPrompt;
+  if (history.length > 0) {
+    userPrompt = '以下は直近の会話履歴です（古い順）:\n' + history.join('\n') +
+      '\n\n上記の流れを踏まえて、以下のメッセージに短く返信してください（100文字以内）:\n\n' + cleanedText;
+  } else {
+    userPrompt = '以下のメッセージに短く返信してください（100文字以内）:\n\n' + cleanedText;
+  }
 
   // LLM呼び出し
   var reply = callLLM('reply', userPrompt, systemPrompt);
@@ -205,6 +215,9 @@ function handleMention(body, config) {
 
     // 返信カウント更新
     props.setProperty(replyCountKey, String(replyCount + 1));
+
+    // 会話履歴を保存（マルチターン）
+    saveConversationTurn_(userId, cleanedText, reply, maxTurns);
   }
 }
 
@@ -335,4 +348,67 @@ function updateUserData_(userId, newTalkCount) {
 
   // 新規ユーザー
   sheet.appendRow([userId, now, newTalkCount]);
+}
+
+// --------------- 会話履歴（マルチターン） ---------------
+
+/**
+ * PropertiesService からユーザーの会話履歴を取得する。
+ * @param {string} userId ユーザーID
+ * @param {number} maxTurns 取得する最大ターン数
+ * @returns {string[]} 「ユーザー: ...」「みあ: ...」形式の文字列配列（古い順）
+ * @private
+ */
+function getConversationHistory_(userId, maxTurns) {
+  if (!userId || maxTurns <= 0) return [];
+
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var raw = props.getProperty('CONV_' + userId);
+    if (!raw) return [];
+
+    var turns = JSON.parse(raw);
+    // 最新 maxTurns ターン分を返す
+    var start = Math.max(0, turns.length - maxTurns);
+    var lines = [];
+    for (var i = start; i < turns.length; i++) {
+      lines.push('ユーザー: ' + turns[i].user);
+      lines.push('みあ: ' + turns[i].bot);
+    }
+    return lines;
+  } catch (e) {
+    Logger.log('[getConversationHistory_] 失敗: ' + e.message);
+    return [];
+  }
+}
+
+/**
+ * 会話ターンを PropertiesService に保存する。
+ * 最大 maxTurns ターンを保持し、古いターンは削除する。
+ * @param {string} userId ユーザーID
+ * @param {string} userMessage ユーザーの発言（クリーニング済み）
+ * @param {string} botReply Botの返信
+ * @param {number} maxTurns 保持する最大ターン数
+ * @private
+ */
+function saveConversationTurn_(userId, userMessage, botReply, maxTurns) {
+  if (!userId || !userMessage || !botReply) return;
+
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var key = 'CONV_' + userId;
+    var raw = props.getProperty(key);
+    var turns = raw ? JSON.parse(raw) : [];
+
+    turns.push({ user: userMessage, bot: botReply });
+
+    // maxTurns を超えた分を削除（先頭から）
+    if (turns.length > maxTurns) {
+      turns = turns.slice(turns.length - maxTurns);
+    }
+
+    props.setProperty(key, JSON.stringify(turns));
+  } catch (e) {
+    Logger.log('[saveConversationTurn_] 失敗: ' + e.message);
+  }
 }
