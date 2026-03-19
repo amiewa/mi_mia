@@ -15,7 +15,7 @@ LLM（AI）はオプションです。`AI_PROVIDER = none` のままでも定期
 - **ゼロコスト**: Google 無料枠のみで完結（GAS 実行時間: 約 6〜17 分/日 = 上限 90 分の最大 19%）
 - **スプレッドシート駆動**: 設定・台詞・ログがすべてシートで確認・編集できる
 - **LLM フォールバック**: AI が使えない状況でも定型文・スコアベースで全機能が動作する
-- **りいな互換設計**: [mi_riina](../mi_riina) と設定キー体系・機能を対称に設計
+- **りいな互換設計**: [りいな](https://github.com/amiewa/mi_riina) と設定キー体系・機能を対称に設計
 
 ---
 
@@ -321,7 +321,7 @@ AI_INPUT_MAX_CHARS     = 2500            # 入力テキストの最大文字数
 | URL Fetch 回数 | 20,000 回/日 | 約 292 回/日 |
 | 実行時間（1 回あたり） | 6 分 | `isTimeSafe()` ガードで対応 |
 
-大規模運用（フォロワー 500 以上等）には [mi_riina](../mi_riina)（Python/Docker/VPS）を推奨します。
+大規模運用（フォロワー 500 以上等）には [りいな](https://github.com/amiewa/mi_riina)（Python/Docker/VPS）を推奨します。
 
 ---
 
@@ -375,7 +375,6 @@ npm test
 
 ## 参照プロジェクト
 - [goodBadWordlist](https://github.com/sayonari/goodBadWordlist) NGワードリストとして利用
-- [Rounded M+](https://github.com/google/fonts) [SIL OPEN FONT LICENSE Version 1.1](https://openfontlicense.org/open-font-license-official-text) デフォルトフォントとして利用
 
 ## 関連プロジェクト
 - [Misskey Bot Riina(りいな)](https://github.com/amiewa/mi_riina) — Python/Docker 版。WebSocket ストリーミング・SQLite・ワードクラウド対応
