@@ -221,6 +221,10 @@ function processTimelinePost(config) {
   var intervalHours = parseInt(config.TIMELINE_POST_INTERVAL_HOURS) || 6;
   if (!isIntervalElapsed_('TIMELINE', intervalHours)) return false;
 
+  // 確率チェック
+  var chance = parseInt(config.TIMELINE_POST_CHANCE) || 70;
+  if (Math.random() * 100 >= chance) return false;
+
   // 日次LLM上限チェック
   if (isAIDailyLimitReached(config)) return false;
 
@@ -279,6 +283,10 @@ function processRandomPost(config) {
   var intervalHours = parseInt(config.RANDOM_POST_INTERVAL_HOURS) || 4;
   if (!isIntervalElapsed_('RANDOM', intervalHours)) return false;
 
+  // 確率チェック
+  var chance = parseInt(config.RANDOM_POST_CHANCE) || 30;
+  if (Math.random() * 100 >= chance) return false;
+
   var sheet = SS.getSheetByName(SHEET.RANDOM_POST);
   if (!sheet || sheet.getLastRow() < 2) return false;
 
@@ -313,6 +321,10 @@ function processPollPost(config) {
   var intervalHours = parseInt(config.POLL_INTERVAL_HOURS) || 12;
   if (!isIntervalElapsed_('POLL', intervalHours)) return;
 
+  // 確率チェック
+  var chance = parseInt(config.POLL_CHANCE) || 50;
+  if (Math.random() * 100 >= chance) return;
+
   var sheet = SS.getSheetByName(SHEET.POLL);
   if (!sheet || sheet.getLastRow() < 2) return;
 
@@ -337,9 +349,10 @@ function processPollPost(config) {
   var selected = candidates[Math.floor(Math.random() * candidates.length)];
   var text = selected.prefix ? selected.prefix + ' ' + selected.question : selected.question;
 
+  var expireHours = parseFloat(config.POLL_EXPIRE_HOURS) || 3;
   var poll = {
     choices: choices.slice(0, 4), // Misskey の上限は4選択肢
-    expiredAfter: 86400000 // 24時間
+    expiredAfter: Math.round(expireHours * 3600000)
   };
 
   var note = postNote(config, text, { postType: 'poll', poll: poll });
@@ -356,7 +369,7 @@ function processPollPost(config) {
  */
 function extractPollChoices_(config) {
   try {
-    var tlType = config.TIMELINE_POST_TYPE || 'local';
+    var tlType = config.POLL_TIMELINE_TYPE || 'local';
     var endpoint = 'notes/local-timeline';
     if (tlType === 'home') endpoint = 'notes/timeline';
     else if (tlType === 'hybrid') endpoint = 'notes/hybrid-timeline';
