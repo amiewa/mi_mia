@@ -6,11 +6,13 @@
  * スプレッドシートメニューを作成する。
  */
 function onOpen() {
-  var ui = SpreadsheetApp.getActiveSpreadsheet();
-  ui.addMenu('みあbot', [
-    { name: '初期設定（シート作成）', functionName: 'setupSpreadsheet' },
-    { name: '設定バリデーション', functionName: 'validateConfig' }
-  ]);
+  SpreadsheetApp.getUi()
+    .createMenu('みあbot')
+    .addItem('初期設定（シート作成）', 'setupSpreadsheet')
+    .addItem('設定バリデーション', 'validateConfig')
+    .addSeparator()
+    .addItem('APIトークン管理', 'manageApiTokens')
+    .addToUi();
 }
 
 /**
@@ -334,4 +336,63 @@ function validateConfig() {
 
   SpreadsheetApp.getActiveSpreadsheet().toast(msg, 'バリデーション結果', 10);
   Logger.log('[validateConfig] ' + msg);
+}
+
+/**
+ * APIトークン・シークレットキーをスプレッドシートUIから管理する。
+ * 実際の値はダイアログ・トースト・ログに一切表示しない。
+ */
+function manageApiTokens() {
+  var ui = SpreadsheetApp.getUi();
+  var props = PropertiesService.getScriptProperties();
+
+  var secretKeys = [
+    'MISSKEY_TOKEN',
+    'GEMINI_API_KEY',
+    'OLLAMA_BASE_URL',
+    'OLLAMA_API_KEY',
+    'OPENROUTER_API_KEY',
+    'OWN_USER_ID'
+  ];
+
+  // 設定状況を確認してメニュー文字列を構築
+  var lines = ['変更したいキーの番号を入力してください。\n空欄でOKを押すとキャンセルします。\n'];
+  for (var i = 0; i < secretKeys.length; i++) {
+    var status = props.getProperty(secretKeys[i]) ? '設定済み' : '未設定';
+    lines.push((i + 1) + '. ' + secretKeys[i] + '  [' + status + ']');
+  }
+
+  var listPrompt = ui.prompt('APIトークン管理', lines.join('\n'), ui.ButtonSet.OK_CANCEL);
+  if (listPrompt.getSelectedButton() !== ui.Button.OK) return;
+
+  var input = listPrompt.getResponseText().trim();
+  if (!input) return;
+
+  var num = parseInt(input, 10);
+  if (isNaN(num) || num < 1 || num > secretKeys.length) {
+    ui.alert('無効な番号です。操作をキャンセルしました。');
+    return;
+  }
+
+  var targetKey = secretKeys[num - 1];
+
+  var valuePrompt = ui.prompt(
+    'APIトークン管理',
+    targetKey + ' の新しい値を入力してください。\n空欄のままOKを押すと現在の値をクリアします。',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (valuePrompt.getSelectedButton() !== ui.Button.OK) return;
+
+  var newValue = valuePrompt.getResponseText().trim();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  if (newValue === '') {
+    props.deleteProperty(targetKey);
+    CacheService.getScriptCache().remove('config_cache');
+    ss.toast(targetKey + ' をクリアしました', 'APIトークン管理');
+  } else {
+    props.setProperty(targetKey, newValue);
+    CacheService.getScriptCache().remove('config_cache');
+    ss.toast(targetKey + ' を更新しました', 'APIトークン管理');
+  }
 }

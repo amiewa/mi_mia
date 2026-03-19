@@ -43,7 +43,7 @@
   },
   "rules": {
     "no-unused-vars": ["warn", {
-      "varsIgnorePattern": "^(doPost|onOpen|mainDispatcher|setupSpreadsheet|validateConfig|runFollowSync|executeAutoDelete|processHoroscope|generateDialogues|SHEET|SS|SCRIPT_START|isTimeSafe|isNightTime|isAIDailyLimitReached|getConfig|callMisskeyApi|postNote|callLLM|cleanNoteText|loadNGWords|containsNGWord|filterTimelineNotes|logError|incrementCounter|getCharacterPrompt_|getAffinityRank_|getFallbackReply_)"
+      "varsIgnorePattern": "^(doPost|onOpen|mainDispatcher|setupSpreadsheet|validateConfig|manageApiTokens|runFollowSync|executeAutoDelete|processHoroscope|generateDialogues|SHEET|SS|SCRIPT_START|isTimeSafe|isNightTime|isAIDailyLimitReached|getConfig|callMisskeyApi|postNote|callLLM|cleanNoteText|loadNGWords|containsNGWord|filterTimelineNotes|logError|incrementCounter|getCharacterPrompt_|getAffinityRank_|getFallbackReply_)"
     }],
     "no-undef": "error",
     "no-redeclare": ["error", { "builtinGlobals": false }],
