@@ -1,4 +1,4 @@
-# mi_mia（みあbot）v2
+# Misskey Bot Mia(みあ)
 
 **Misskey 用サーバーレス bot — Google Apps Script + Google スプレッドシートで動作**
 
@@ -6,10 +6,11 @@
 
 ## 概要
 
-みあは Misskey インスタンス向けの自動投稿 bot です。Google Apps Script（GAS）で動作するため、サーバーの用意は不要です。設定・台詞・ユーザー管理はすべて Google スプレッドシートで行います。
+- Riina(りいな)はMisskeyで動作するキャラクターBotです。Google Apps Script（GAS）で動作するため、サーバーの用意は不要です。設定・台詞・ユーザー管理はすべて Google スプレッドシートで行います。
 
-LLM（AI）はオプションです。`AI_PROVIDER = none` のままでも定期投稿・リアクション・星座占い・フォローバックなどの主要機能が動作します。
+- LLM（AI）はオプションです。`AI_PROVIDER = none` のままでも定期投稿・リアクション・星座占い・フォローバックなどの主要機能が動作します。
 
+- [Misskey](https://github.com/misskey-dev/misskey) 2025.12.2 以降で動作を確認しています。
 ### 特徴
 
 - **ゼロコスト**: Google 無料枠のみで完結（GAS 実行時間: 約 6〜17 分/日 = 上限 90 分の最大 19%）
