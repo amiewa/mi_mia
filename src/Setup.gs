@@ -12,8 +12,40 @@ function onOpen() {
     .addItem('設定バリデーション', 'validateConfig')
     .addSeparator()
     .addItem('APIトークン管理', 'manageApiTokens')
+    .addSeparator()
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('手動テスト実行')
+      .addItem('ランダム投稿', 'testProcessRandomPost')
+      .addItem('イベント投稿', 'testProcessEventPost')
+      .addItem('曜日別投稿', 'testProcessWeekdayPost')
+      .addItem('スケジュール投稿', 'testProcessScheduledPost')
+      .addItem('TL連動投稿', 'testProcessTimelinePost')
+      .addItem('投票投稿', 'testProcessPollPost')
+      .addItem('リアクション', 'testProcessReaction')
+      .addItem('星座占い', 'testProcessHoroscope')
+    )
     .addToUi();
 }
+
+// ============================================================
+// テスト用ラッパー関数（手動実行・GASエディタから直接呼び出し可能）
+// ============================================================
+
+/** @returns {void} */
+function testProcessRandomPost()    { processRandomPost(getConfig()); }
+/** @returns {void} */
+function testProcessEventPost()     { processEventPost(getConfig()); }
+/** @returns {void} */
+function testProcessWeekdayPost()   { processWeekdayPost(getConfig()); }
+/** @returns {void} */
+function testProcessScheduledPost() { processScheduledPost(getConfig()); }
+/** @returns {void} */
+function testProcessTimelinePost()  { processTimelinePost(getConfig()); }
+/** @returns {void} */
+function testProcessPollPost()      { processPollPost(getConfig()); }
+/** @returns {void} */
+function testProcessReaction()      { processReaction(getConfig()); }
+/** @returns {void} */
+function testProcessHoroscope()     { processHoroscope(getConfig()); }
 
 /**
  * 15シートを作成する（冪等: 既存シートはスキップ）。
