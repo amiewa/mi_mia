@@ -55,7 +55,7 @@ function setupSpreadsheet() {
         ['WEEKDAY_POST_CHANCE', '30', '曜日別投稿確率 (%)'],
         ['TIMELINE_POST_ENABLED', 'TRUE', 'TL連動投稿'],
         ['TIMELINE_POST_INTERVAL_HOURS', '6', 'TL連動投稿間隔（時間）'],
-        ['TIMELINE_POST_TYPE', 'local', 'TL種別 (local/home/hybrid)'],
+        ['TIMELINE_POST_TYPE', 'local', 'TL種別: local / home / hybrid / global'],
         ['HOROSCOPE_ENABLED', 'FALSE', '星座占い'],
         ['HOROSCOPE_HOUR', '7', '占い投稿時刻'],
         ['HOROSCOPE_USE_AI', 'FALSE', 'AI占い使用'],
@@ -78,7 +78,7 @@ function setupSpreadsheet() {
         ['AFFINITY_RANK2_THRESHOLD', '5', '好感度ランク2閾値'],
         ['AFFINITY_RANK3_THRESHOLD', '20', '好感度ランク3閾値'],
         ['NG_WORDS_MATCH_MODE', 'substring', 'NGワード照合方式'],
-        ['NG_WORDS_EXTERNAL_URL', '', '外部NGワードリストURL'],
+        ['NG_WORDS_EXTERNAL_URL', 'https://raw.githubusercontent.com/sayonari/goodBadWordlist/main/ja/BadList.txt', '外部NGワードリストのURL（1行1ワードのテキスト）'],
         ['MAINTENANCE_ENABLED', 'TRUE', '日次メンテナンス'],
         ['MAINTENANCE_CLEANUP_DAYS', '30', 'クリーンアップ日数'],
         ['MAINTENANCE_AUTO_DELETE_ENABLED', 'FALSE', '自動投稿削除'],
@@ -101,15 +101,36 @@ function setupSpreadsheet() {
     },
     {
       name: SHEET.SCHEDULED_POST,
-      headers: ['時間帯', 'メモ', '投稿内容']
+      headers: ['時間帯', '投稿内容'],
+      defaultData: [
+        ['07', 'おはよ～'],
+        ['07', '朝だ～ 今日もなんとかなるかな'],
+        ['12', 'お昼にしよ～'],
+        ['21', 'もう夜だ　時間経つの早すぎ'],
+        ['23', 'そろそろ寝る時間かな～']
+      ]
     },
     {
       name: SHEET.RANDOM_POST,
-      headers: ['投稿内容']
+      headers: ['投稿内容'],
+      defaultData: [
+        ['ふと思ったんだけど　あたしってなんで存在してるんだろ'],
+        ['眠い　でも寝たくない　でも眠い'],
+        ['なんかいいこと起きそうな予感　根拠はない'],
+        ['ごはん食べたい　なにがいいかな'],
+        ['今日も一日おつかれ～']
+      ]
     },
     {
       name: SHEET.WEEKDAY,
-      headers: ['時刻', 'SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+      headers: ['時刻', '曜日', '投稿内容'],
+      defaultData: [
+        ['20', 'SUN', 'もうすぐ日曜日が終わるよ～'],
+        ['08', 'MON', '月曜日～　なんとか起きたよ'],
+        ['12', 'WED', '週の半分きたよ　まだ半分あるけど'],
+        ['17', 'FRI', 'やっと週末　今週なにもしてないけど～'],
+        ['10', 'SAT', '土曜日ってだけでなんかいい気がする']
+      ]
     },
     {
       name: SHEET.EVENT,
@@ -121,7 +142,14 @@ function setupSpreadsheet() {
     },
     {
       name: SHEET.REACTION,
-      headers: ['キーワード', 'リアクション候補1', 'リアクション候補2']
+      headers: ['キーワード', 'リアクション候補1', 'リアクション候補2'],
+      defaultData: [
+        ['おはよう', '🌅', '🐔'],
+        ['おやすみ', '💤', '🌙'],
+        ['ありがとう', '🙏', '😊'],
+        ['かわいい', '❤️', '🥺'],
+        ['えらい', '👏', '✨']
+      ]
     },
     {
       name: SHEET.FALLBACK,

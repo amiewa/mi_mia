@@ -138,30 +138,32 @@ function processWeekdayPost(config) {
   var now = new Date();
   var currentHour = parseInt(Utilities.formatDate(now, 'Asia/Tokyo', 'H'));
   var dayIndex = parseInt(Utilities.formatDate(now, 'Asia/Tokyo', 'u')); // 1=月〜7=日
-  // GAS の 'u' は ISO (1=月曜), JS の getDay() は 0=日曜
-  // 配列は SUN=0, MON=1,...,SAT=6 なので変換が必要
-  var jsDayIndex = dayIndex === 7 ? 0 : dayIndex;
-  // ヘッダー: [時刻, SUN, MON, TUE, WED, THU, FRI, SAT] → 列 2+jsDayIndex
-
-  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 8).getValues();
+  // GAS の 'u' は ISO (1=月, 7=日)
+  var dayAbbr = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'][dayIndex - 1];
 
   // 当日の間隔チェック
   if (!isIntervalElapsed_('WEEKDAY', 1)) return false;
 
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+  var candidates = [];
+
   for (var i = 0; i < data.length; i++) {
     var hour = parseInt(data[i][0]);
-    if (hour === currentHour) {
-      var text = String(data[i][1 + jsDayIndex]).trim();
-      if (text) {
-        var note = postNote(config, text, { postType: 'weekday' });
-        if (note) {
-          setLastRunTime_('WEEKDAY');
-          return true;
-        }
-      }
+    var day = String(data[i][1]).trim().toUpperCase();
+    var text = String(data[i][2]).trim();
+    if (hour === currentHour && day === dayAbbr && text) {
+      candidates.push(text);
     }
   }
 
+  if (candidates.length === 0) return false;
+
+  var selected = candidates[Math.floor(Math.random() * candidates.length)];
+  var note = postNote(config, selected, { postType: 'weekday' });
+  if (note) {
+    setLastRunTime_('WEEKDAY');
+    return true;
+  }
   return false;
 }
 
@@ -187,11 +189,11 @@ function processScheduledPost(config) {
   // 間隔チェック（重複防止: 同一時間帯で再投稿しない）
   if (!isIntervalElapsed_('SCHEDULED', 1)) return false;
 
-  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
 
   for (var i = 0; i < data.length; i++) {
     var hour = parseInt(data[i][0]);
-    var text = String(data[i][2]).trim();
+    var text = String(data[i][1]).trim();
 
     if (hour === currentHour && text) {
       var note = postNote(config, text, { postType: 'schedule' });
@@ -227,6 +229,7 @@ function processTimelinePost(config) {
   var endpoint = 'notes/local-timeline';
   if (tlType === 'home') endpoint = 'notes/timeline';
   else if (tlType === 'hybrid') endpoint = 'notes/hybrid-timeline';
+  else if (tlType === 'global') endpoint = 'notes/global-timeline';
 
   try {
     var notes = callMisskeyApi(endpoint, { limit: 20 });
@@ -356,6 +359,8 @@ function extractPollChoices_(config) {
     var tlType = config.TIMELINE_POST_TYPE || 'local';
     var endpoint = 'notes/local-timeline';
     if (tlType === 'home') endpoint = 'notes/timeline';
+    else if (tlType === 'hybrid') endpoint = 'notes/hybrid-timeline';
+    else if (tlType === 'global') endpoint = 'notes/global-timeline';
 
     var notes = callMisskeyApi(endpoint, { limit: 30 });
     var filtered = filterTimelineNotes(notes, config);
