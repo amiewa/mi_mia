@@ -39,13 +39,13 @@ function testProcessWeekdayPost()   { processWeekdayPost(getConfig()); }
 /** @returns {void} */
 function testProcessScheduledPost() { processScheduledPost(getConfig()); }
 /** @returns {void} */
-function testProcessTimelinePost()  { processTimelinePost(getConfig()); }
+function testProcessTimelinePost()  { var c = getConfig(); c._forceTest = true; processTimelinePost(c); }
 /** @returns {void} */
-function testProcessPollPost()      { processPollPost(getConfig()); }
+function testProcessPollPost()      { var c = getConfig(); c._forceTest = true; processPollPost(c); }
 /** @returns {void} */
 function testProcessReaction()      { processReaction(getConfig()); }
 /** @returns {void} */
-function testProcessHoroscope()     { processHoroscope(getConfig()); }
+function testProcessHoroscope()     { var c = getConfig(); c._forceTest = true; processHoroscope(c); }
 
 /**
  * 15シートを作成する（冪等: 既存シートはスキップ）。

@@ -217,16 +217,20 @@ function processScheduledPost(config) {
 function processTimelinePost(config) {
   if (!isTimeSafe()) return false;
 
-  // 間隔チェック
-  var intervalHours = parseInt(config.TIMELINE_POST_INTERVAL_HOURS) || 6;
-  if (!isIntervalElapsed_('TIMELINE', intervalHours)) return false;
+  var force = config._forceTest === true;
 
-  // 確率チェック
-  var chance = parseInt(config.TIMELINE_POST_CHANCE) || 70;
-  if (Math.random() * 100 >= chance) return false;
+  if (!force) {
+    // 間隔チェック
+    var intervalHours = parseInt(config.TIMELINE_POST_INTERVAL_HOURS) || 6;
+    if (!isIntervalElapsed_('TIMELINE', intervalHours)) return false;
 
-  // 日次LLM上限チェック
-  if (isAIDailyLimitReached(config)) return false;
+    // 確率チェック
+    var chance = parseInt(config.TIMELINE_POST_CHANCE) || 70;
+    if (Math.random() * 100 >= chance) return false;
+
+    // 日次LLM上限チェック
+    if (isAIDailyLimitReached(config)) return false;
+  }
 
   // タイムライン取得
   var tlType = config.TIMELINE_POST_TYPE || 'local';
@@ -316,14 +320,18 @@ function processRandomPost(config) {
  * @param {Object} config 設定オブジェクト
  */
 function processPollPost(config) {
-  if (String(config.POLL_ENABLED).toUpperCase() !== 'TRUE') return;
+  var force = config._forceTest === true;
 
-  var intervalHours = parseInt(config.POLL_INTERVAL_HOURS) || 12;
-  if (!isIntervalElapsed_('POLL', intervalHours)) return;
+  if (!force) {
+    if (String(config.POLL_ENABLED).toUpperCase() !== 'TRUE') return;
 
-  // 確率チェック
-  var chance = parseInt(config.POLL_CHANCE) || 50;
-  if (Math.random() * 100 >= chance) return;
+    var intervalHours = parseInt(config.POLL_INTERVAL_HOURS) || 12;
+    if (!isIntervalElapsed_('POLL', intervalHours)) return;
+
+    // 確率チェック
+    var chance = parseInt(config.POLL_CHANCE) || 50;
+    if (Math.random() * 100 >= chance) return;
+  }
 
   var sheet = SS.getSheetByName(SHEET.POLL);
   if (!sheet || sheet.getLastRow() < 2) return;
@@ -509,15 +517,19 @@ function processReaction(config) {
  * @param {Object} config 設定オブジェクト
  */
 function processHoroscope(config) {
-  if (String(config.HOROSCOPE_ENABLED).toUpperCase() !== 'TRUE') return;
+  var force = config._forceTest === true;
 
-  // 時刻チェック
-  var targetHour = parseInt(config.HOROSCOPE_HOUR) || 7;
-  var currentHour = parseInt(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'H'));
-  if (currentHour !== targetHour) return;
+  if (!force) {
+    if (String(config.HOROSCOPE_ENABLED).toUpperCase() !== 'TRUE') return;
 
-  // 日次チェック（1日1回）
-  if (!isIntervalElapsed_('HOROSCOPE', 20)) return;
+    // 時刻チェック
+    var targetHour = parseInt(config.HOROSCOPE_HOUR) || 7;
+    var currentHour = parseInt(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'H'));
+    if (currentHour !== targetHour) return;
+
+    // 日次チェック（1日1回）
+    if (!isIntervalElapsed_('HOROSCOPE', 20)) return;
+  }
 
   var text = null;
 
