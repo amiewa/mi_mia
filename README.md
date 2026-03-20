@@ -6,7 +6,7 @@
 
 ## 概要
 
-- Riina(りいな)はMisskeyで動作するキャラクターBotです。Google Apps Script（GAS）で動作するため、サーバーの用意は不要です。設定・台詞・ユーザー管理はすべて Google スプレッドシートで行います。
+- Mia(みあ)はMisskeyで動作するキャラクターBotです。Google Apps Script（GAS）で動作するため、サーバーの用意は不要です。設定・台詞・ユーザー管理はすべて Google スプレッドシートで行います。
 
 - LLM（AI）はオプションです。`AI_PROVIDER = none` のままでも定期投稿・リアクション・星座占い・フォローバックなどの主要機能が動作します。
 
