@@ -357,10 +357,14 @@ function processPollPost(config) {
   var selected = candidates[Math.floor(Math.random() * candidates.length)];
   var text = selected.question;
 
-  // prefix がある場合は各選択肢に付与する
+  // prefix がある場合は各選択肢にランダムなprefixを付与する
+  var prefixes = candidates.map(function(c) { return c.prefix; }).filter(function(p) { return p !== ''; });
   var pollChoices = choices.slice(0, 4);
-  if (selected.prefix) {
-    pollChoices = pollChoices.map(function(c) { return selected.prefix + c; });
+  if (prefixes.length > 0) {
+    pollChoices = pollChoices.map(function(c) {
+      var p = prefixes[Math.floor(Math.random() * prefixes.length)];
+      return p + c;
+    });
   }
 
   var expireHours = parseFloat(config.POLL_EXPIRE_HOURS) || 3;
