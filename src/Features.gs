@@ -347,11 +347,17 @@ function processPollPost(config) {
   if (choices.length < 2) return;
 
   var selected = candidates[Math.floor(Math.random() * candidates.length)];
-  var text = selected.prefix ? selected.prefix + ' ' + selected.question : selected.question;
+  var text = selected.question;
+
+  // prefix がある場合は各選択肢に付与する
+  var pollChoices = choices.slice(0, 4);
+  if (selected.prefix) {
+    pollChoices = pollChoices.map(function(c) { return selected.prefix + c; });
+  }
 
   var expireHours = parseFloat(config.POLL_EXPIRE_HOURS) || 3;
   var poll = {
-    choices: choices.slice(0, 4), // Misskey の上限は4選択肢
+    choices: pollChoices, // Misskey の上限は4選択肢
     expiredAfter: Math.round(expireHours * 3600000)
   };
 
@@ -540,9 +546,31 @@ function processHoroscope(config) {
  * @private
  */
 function generateAIHoroscope_(config) {
-  var maxChars = parseInt(config.HOROSCOPE_MAX_CHARS) || 500;
   var systemPrompt = getCharacterPrompt_();
-  var userPrompt = '今日の12星座占いを投稿してください。全12星座のランキング形式で、それぞれ一言コメント付き。' + maxChars + '文字以内で。';
+  var todayStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+
+  var userPrompt = '以下のシステムプロンプトのキャラクターになりきって、今日の12星座占いのランキングを作成してください。\n\n'
+    + '【システムプロンプト】\n' + systemPrompt + '\n\n'
+    + '【条件】\n'
+    + '- 本日の日付: ' + todayStr + ' (この日付に基づいた運勢を生成してください)\n'
+    + '- 以下の12星座すべてを含めてください。\n'
+    + '  ♈おひつじ座, ♉おうし座, ♊ふたご座, ♋かに座, ♌しし座, ♍おとめ座, ♎てんびん座, ♏さそり座, ♐いて座, ♑やぎ座, ♒みずがめ座, ♓うお座\n'
+    + '- 順位やスコアは毎日ランダムに入れ替えてください。特定の星座が常に上位にならないようにしてください。\n'
+    + '- 順位が高い順に並べて、各星座の後に「⭐1〜⭐5」のレート（0.5刻みも可）と運勢コメントを付けてください。\n'
+    + '- 各星座に今日の運勢について短いコメント（15文字程度）を付けてください。キャラクターの口調を守ってください。\n'
+    + '- 1位は🥇、2位は🥈、3位は🥉の絵文字を順位の前に付けてください。4位以降は数字のみでOKです。\n'
+    + '- 全体のタイトルとして「🌟 今日の12星座占いランキング 🌟」を最初に入れてください。\n\n'
+    + '【表示例】\n'
+    + '🌟 今日の12星座占いランキング 🌟\n\n'
+    + '🥇位: [星座名] ⭐5 [運勢コメント]\n'
+    + '🥈位: [星座名] ⭐4.5 [運勢コメント]\n'
+    + '🥉位: [星座名] ⭐4.0 [運勢コメント]\n'
+    + '4位: [星座名] ⭐3.5 [運勢コメント]\n'
+    + '（...12位まで続く）\n\n'
+    + '【出力ルール】\n'
+    + '- MFM記法（**太字**、`コード`、> 引用、~~打消し~~ 等）は一切使用しないでください。\n'
+    + '- 余計な解説文や挨拶（「承知しました」「生成します」など）は一切不要です。\n'
+    + '- 投稿される文章のみをそのまま出力してください。';
 
   var result = callLLM('horoscope', userPrompt, systemPrompt);
   if (!result) return null;
