@@ -1,6 +1,6 @@
 {
   "name": "mi_mia",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "mi_mia v2 GAS project",
   "scripts": {
     "lint": "eslint --ext .gs src/",
@@ -10,7 +10,7 @@
     "watch": "clasp push --watch"
   },
   "devDependencies": {
-    "@google/clasp": "^2.4.2",
+    "@google/clasp": "^3.3.0",
     "@types/google-apps-script": "^1.0.83",
     "eslint": "^8.57.0",
     "jest": "^29.7.0",

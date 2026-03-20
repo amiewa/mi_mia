@@ -371,8 +371,6 @@ npm test
 ## 参考にしたMisskey Bot
 本プロジェクトは、以下のプロジェクトを参考にさせていただきました。深く感謝申し上げます。
 - [藍ちゃん](https://github.com/syuilo/ai) 
-- [アストロラーベちゃん](https://github.com/amanami-takumi/astrolabe_for_misskey_v2)
-- [さんごちゃん](https://github.com/RoiARISE/sango_chan_bot)
 
 ## 参照プロジェクト
 - [goodBadWordlist](https://github.com/sayonari/goodBadWordlist) NGワードリストとして利用
