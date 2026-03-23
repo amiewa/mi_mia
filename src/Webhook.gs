@@ -73,8 +73,8 @@ function handleFollowed(body, config) {
 
   try {
     // 既にフォロー済みかチェック
-    var relation = callMisskeyApi('users/relation', { userId: userId });
-    if (relation && relation.isFollowing) return;
+    var relation = normalizeRelation(callMisskeyApi('users/relation', { userId: userId }));
+    if (relation.isFollowing) return;
 
     callMisskeyApi('following/create', { userId: userId });
     incrementCounter('FOLLOW_BACK');
@@ -146,7 +146,7 @@ function handleMention(body, config) {
   // 相互フォロー確認
   if (String(config.REPLY_MUTUAL_ONLY).toUpperCase() === 'TRUE') {
     try {
-      var relation = callMisskeyApi('users/relation', { userId: userId });
+      var relation = normalizeRelation(callMisskeyApi('users/relation', { userId: userId }));
       if (!relation.isFollowing || !relation.isFollowed) return;
     } catch (e) {
       logError('handleMention', '相互フォロー確認失敗: ' + e.message);
@@ -315,7 +315,7 @@ function checkKeywordFollowBack_(config, text, userId) {
     var kw = keywords[i].trim().toLowerCase();
     if (kw && lower.indexOf(kw) !== -1) {
       try {
-        var relation = callMisskeyApi('users/relation', { userId: userId });
+        var relation = normalizeRelation(callMisskeyApi('users/relation', { userId: userId }));
         if (!relation.isFollowing) {
           callMisskeyApi('following/create', { userId: userId });
           incrementCounter('FOLLOW_BACK');

@@ -472,7 +472,7 @@ function processReaction(config) {
       // 相互フォローチェック
       if (mutualOnly) {
         try {
-          var relation = callMisskeyApi('users/relation', { userId: note.user.id });
+          var relation = normalizeRelation(callMisskeyApi('users/relation', { userId: note.user.id }));
           if (!relation.isFollowing || !relation.isFollowed) continue;
         } catch (e) {
           continue;
@@ -677,7 +677,11 @@ function runDailyMaintenance(config) {
   if (props.getProperty('LAST_MAINTENANCE_DATE') === today) return;
 
   // --- ダッシュボード書き込み ---
-  writeDashboard_(config, today);
+  // 0時台に実行されるため、前日のデータを記録する
+  var yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  var yesterdayStr = Utilities.formatDate(yesterday, 'Asia/Tokyo', 'yyyy-MM-dd');
+  writeDashboard_(config, yesterdayStr);
 
   // --- PropertiesService の一時キー削除 ---
   cleanupProperties_(config);
@@ -701,20 +705,20 @@ function runDailyMaintenance(config) {
 /**
  * ダッシュボードシートに日次統計を書き込む。
  * @param {Object} config 設定オブジェクト
- * @param {string} today 日付文字列
+ * @param {string} targetDate 日付文字列
  * @private
  */
-function writeDashboard_(config, today) {
+function writeDashboard_(config, targetDate) {
   try {
     var sheet = SS.getSheetByName(SHEET.DASHBOARD);
     if (!sheet) return;
 
     var props = PropertiesService.getScriptProperties();
     var counters = ['POST', 'REPLY', 'REACTION', 'FOLLOW_BACK', 'AI', 'ERROR', 'URL_FETCH', 'UNFOLLOW'];
-    var row = [today];
+    var row = [targetDate];
 
     for (var i = 0; i < counters.length; i++) {
-      var key = 'COUNT_' + counters[i] + '_' + today;
+      var key = 'COUNT_' + counters[i] + '_' + targetDate;
       row.push(parseInt(props.getProperty(key)) || 0);
     }
 

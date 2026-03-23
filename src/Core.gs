@@ -275,6 +275,21 @@ function callMisskeyApi(endpoint, params) {
 }
 
 /**
+ * users/relation API の戻り値を正規化する。
+ * Misskey バージョンにより配列/オブジェクト、isFollowing/following の差異を吸収。
+ * @param {Object|Array} raw callMisskeyApi('users/relation', ...) の戻り値
+ * @returns {{ isFollowing: boolean, isFollowed: boolean }}
+ */
+function normalizeRelation(raw) {
+  var r = Array.isArray(raw) ? raw[0] : raw;
+  if (!r) return { isFollowing: false, isFollowed: false };
+  return {
+    isFollowing: !!(r.isFollowing !== undefined ? r.isFollowing : r.following),
+    isFollowed: !!(r.isFollowed !== undefined ? r.isFollowed : r.followed)
+  };
+}
+
+/**
  * ノートを投稿し、投稿履歴シートに記録する。
  * @param {Object} config 設定オブジェクト
  * @param {string} text 投稿テキスト
