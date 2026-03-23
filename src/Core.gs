@@ -7,7 +7,7 @@
 /** @type {Object<string, string>} シート名マップ */
 var SHEET = {
   CONFIG: '設定',
-  CHARACTER_PROMPT: 'キャラクタープロンプト',
+  CHARACTER_SETTINGS: 'キャラクター設定',
   SCHEDULED_POST: 'スケジュール投稿',
   RANDOM_POST: 'ランダム投稿',
   WEEKDAY: '曜日別',

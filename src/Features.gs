@@ -1018,14 +1018,31 @@ function fetchPaginated_(endpoint, userId) {
 // --------------- キャラクタープロンプト取得 ---------------
 
 /**
- * キャラクタープロンプトシートからSystem Promptを取得する。
+ * キャラクター設定シートから指定キーの値を取得する。
+ * A列をキー、B列を値とするKey-Value形式。
+ * @param {string} key A列のキー名
+ * @returns {string|null} B列の値。キーが見つからなければ null
+ * @private
+ */
+function getCharacterSetting_(key) {
+  var sheet = SS.getSheetByName(SHEET.CHARACTER_SETTINGS);
+  if (!sheet || sheet.getLastRow() < 2) return null;
+
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][0]).trim() === key) {
+      return String(data[i][1]).trim() || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * キャラクター設定シートからSystem Promptを取得する。
  * @returns {string} System Prompt
  * @private
  */
 function getCharacterPrompt_() {
-  var sheet = SS.getSheetByName(SHEET.CHARACTER_PROMPT);
-  if (!sheet || sheet.getLastRow() < 2) {
-    return 'あなたは少女「みあ」一人称「あたし」マイペース,無頓着,好奇心はあるが浅い。敬語・句点・絵文字不使用。語尾は柔らかくゆるい。';
-  }
-  return String(sheet.getRange(2, 1).getValue()).trim();
+  var prompt = getCharacterSetting_('キャラクタープロンプト');
+  return prompt || 'あなたは少女「みあ」一人称「あたし」マイペース,無頓着,好奇心はあるが浅い。敬語・句点・絵文字不使用。語尾は柔らかくゆるい。';
 }

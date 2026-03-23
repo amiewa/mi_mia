@@ -466,7 +466,8 @@ function handleNicknameRegister_(config, nickname, userId, noteId) {
   // NGワードチェック
   var ngWords = loadNGWords(config);
   if (containsNGWord(nickname, ngWords)) {
-    postNote(config, 'ん〜、その名前はちょっと… 別のにしてほしいな〜', {
+    var ngMsg = getCharacterSetting_('呼び名NG') || 'ん〜、その名前はちょっと… 別のにしてほしいな〜';
+    postNote(config, ngMsg, {
       replyId: noteId,
       postType: 'reply'
     });
@@ -476,7 +477,8 @@ function handleNicknameRegister_(config, nickname, userId, noteId) {
   // ユーザー管理シートに保存
   upsertNickname_(userId, nickname);
 
-  postNote(config, nickname + 'って呼べばいいんだね！ わかった〜', {
+  var regMsg = getCharacterSetting_('呼び名登録') || '{nickname}って呼べばいいんだね！ わかった〜';
+  postNote(config, regMsg.replace('{nickname}', nickname), {
     replyId: noteId,
     postType: 'reply'
   });
@@ -493,7 +495,8 @@ function handleNicknameRegister_(config, nickname, userId, noteId) {
 function handleNicknameReset_(config, userId, noteId) {
   deleteNickname_(userId);
 
-  postNote(config, 'わかった、元の呼び方に戻すね〜', {
+  var resetMsg = getCharacterSetting_('呼び名リセット') || 'わかった、元の呼び方に戻すね〜';
+  postNote(config, resetMsg, {
     replyId: noteId,
     postType: 'reply'
   });
