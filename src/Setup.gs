@@ -125,7 +125,9 @@ function setupSpreadsheet() {
         ['MAINTENANCE_DELETE_MAX_RETRIES', '3', '削除リトライ回数'],
         ['ERROR_NOTIFY_ENABLED', 'FALSE', 'エラーメール通知'],
         ['ERROR_NOTIFY_EMAIL', '', '通知先メールアドレス'],
-        ['CONV_MAX_TURNS', '3', '会話履歴の保持ターン数 (0=無効)']
+        ['CONV_MAX_TURNS', '3', '会話履歴の保持ターン数 (0=無効)'],
+        ['NICKNAME_ENABLED', 'TRUE', 'ニックネーム登録機能（「○○って呼んで」）'],
+        ['NICKNAME_MAX_LENGTH', '20', 'ニックネームの最大文字数']
       ]
     },
     {
@@ -209,7 +211,7 @@ function setupSpreadsheet() {
     },
     {
       name: SHEET.USER_MGMT,
-      headers: ['UserId', '最終会話日時', '総会話数']
+      headers: ['UserId', '最終会話日時', '総会話数', 'ニックネーム']
     },
     {
       name: SHEET.DASHBOARD,

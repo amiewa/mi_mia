@@ -2,6 +2,11 @@
  * Webhook.gs — doPost・フォローバック・メンション返信
  * ============================================================ */
 
+// ===== ニックネーム関連の定数 =====
+// 区切り文字（スペース・句読点・感嘆符）の直後〜「って呼んで」を名前として抽出
+var NICKNAME_REGISTER_RE = /([^\s　、。！？!?,.\n]+)って呼んで/;
+var NICKNAME_RESET_KEYWORD = '呼び名リセット';
+
 /**
  * Misskey Webhook のエントリポイント。
  * LockService で排他制御する。
@@ -112,6 +117,19 @@ function handleMention(body, config) {
   var cleanedText = cleanNoteText(rawText);
   if (!cleanedText) return;
 
+  // ===== ニックネーム処理 =====
+  if (String(config.NICKNAME_ENABLED).toUpperCase() === 'TRUE') {
+    if (cleanedText.indexOf(NICKNAME_RESET_KEYWORD) !== -1) {
+      handleNicknameReset_(config, userId, noteId);
+      return;
+    }
+    var nickMatch = cleanedText.match(NICKNAME_REGISTER_RE);
+    if (nickMatch) {
+      handleNicknameRegister_(config, nickMatch[1], userId, noteId);
+      return;
+    }
+  }
+
   // NGワードチェック
   var ngWords = loadNGWords(config);
   if (containsNGWord(cleanedText, ngWords)) {
@@ -159,6 +177,12 @@ function handleMention(body, config) {
   // 現在日時の追加
   var nowStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy年M月d日 H時');
   systemPrompt += '\n\n現在: ' + nowStr;
+
+  // 呼び名の解決
+  var displayName = resolveDisplayName_(userData, note);
+  if (displayName) {
+    systemPrompt += '\n\n相手の呼び名は' + displayName;
+  }
 
   // 会話履歴の取得（マルチターン）
   var maxTurns = parseInt(config.CONV_MAX_TURNS) || 3;
@@ -307,17 +331,21 @@ function checkKeywordFollowBack_(config, text, userId) {
 /**
  * ユーザー管理シートからユーザーデータを取得する。
  * @param {string} userId ユーザーID
- * @returns {Object|null} { talkCount: number } or null
+ * @returns {Object|null} { talkCount: number, nickname: string|null, row: number } or null
  * @private
  */
 function getUserData_(userId) {
   var sheet = SS.getSheetByName(SHEET.USER_MGMT);
   if (!sheet || sheet.getLastRow() < 2) return null;
 
-  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues();
   for (var i = 0; i < data.length; i++) {
     if (String(data[i][0]).trim() === userId) {
-      return { talkCount: parseInt(data[i][2]) || 0, row: i + 2 };
+      return {
+        talkCount: parseInt(data[i][2]) || 0,
+        nickname: String(data[i][3] || '').trim() || null,
+        row: i + 2
+      };
     }
   }
   return null;
@@ -325,6 +353,7 @@ function getUserData_(userId) {
 
 /**
  * ユーザー管理シートのデータを更新する。
+ * ニックネーム列（D列）は変更しない。
  * @param {string} userId ユーザーID
  * @param {number} newTalkCount 新しい会話回数
  * @private
@@ -335,19 +364,20 @@ function updateUserData_(userId, newTalkCount) {
 
   var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
   var data = sheet.getLastRow() > 1
-    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues()
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
     : [];
 
   for (var i = 0; i < data.length; i++) {
     if (String(data[i][0]).trim() === userId) {
       sheet.getRange(i + 2, 2).setValue(now);
       sheet.getRange(i + 2, 3).setValue(newTalkCount);
+      // D列（ニックネーム）は触らない
       return;
     }
   }
 
-  // 新規ユーザー
-  sheet.appendRow([userId, now, newTalkCount]);
+  // 新規ユーザー（ニックネームは空）
+  sheet.appendRow([userId, now, newTalkCount, '']);
 }
 
 // --------------- 会話履歴（マルチターン） ---------------
@@ -411,4 +441,130 @@ function saveConversationTurn_(userId, userMessage, botReply, maxTurns) {
   } catch (e) {
     Logger.log('[saveConversationTurn_] 失敗: ' + e.message);
   }
+}
+
+// --------------- ニックネーム処理 ---------------
+
+/**
+ * ニックネーム登録を処理する。
+ * @param {Object} config 設定オブジェクト
+ * @param {string} nickname 登録するニックネーム
+ * @param {string} userId ユーザーID
+ * @param {string} noteId 返信先ノートID
+ * @private
+ */
+function handleNicknameRegister_(config, nickname, userId, noteId) {
+  nickname = nickname.trim();
+  if (!nickname) return;
+
+  // 長さ制限
+  var maxLen = parseInt(config.NICKNAME_MAX_LENGTH) || 20;
+  if (nickname.length > maxLen) {
+    nickname = nickname.substring(0, maxLen);
+  }
+
+  // NGワードチェック
+  var ngWords = loadNGWords(config);
+  if (containsNGWord(nickname, ngWords)) {
+    postNote(config, 'ん〜、その名前はちょっと… 別のにしてほしいな〜', {
+      replyId: noteId,
+      postType: 'reply'
+    });
+    return;
+  }
+
+  // ユーザー管理シートに保存
+  upsertNickname_(userId, nickname);
+
+  postNote(config, nickname + 'って呼べばいいんだね！ わかった〜', {
+    replyId: noteId,
+    postType: 'reply'
+  });
+  incrementCounter('REPLY');
+}
+
+/**
+ * ニックネームリセットを処理する。
+ * @param {Object} config 設定オブジェクト
+ * @param {string} userId ユーザーID
+ * @param {string} noteId 返信先ノートID
+ * @private
+ */
+function handleNicknameReset_(config, userId, noteId) {
+  deleteNickname_(userId);
+
+  postNote(config, 'わかった、元の呼び方に戻すね〜', {
+    replyId: noteId,
+    postType: 'reply'
+  });
+  incrementCounter('REPLY');
+}
+
+/**
+ * ユーザー管理シートにニックネームを保存（upsert）。
+ * @param {string} userId ユーザーID
+ * @param {string} nickname ニックネーム
+ * @private
+ */
+function upsertNickname_(userId, nickname) {
+  var sheet = SS.getSheetByName(SHEET.USER_MGMT);
+  if (!sheet) return;
+
+  var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+
+  if (sheet.getLastRow() < 2) {
+    sheet.appendRow([userId, now, 0, nickname]);
+    return;
+  }
+
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][0]).trim() === userId) {
+      sheet.getRange(i + 2, 4).setValue(nickname);
+      return;
+    }
+  }
+
+  // 新規ユーザー
+  sheet.appendRow([userId, now, 0, nickname]);
+}
+
+/**
+ * ユーザー管理シートからニックネームを削除する。
+ * @param {string} userId ユーザーID
+ * @private
+ */
+function deleteNickname_(userId) {
+  var sheet = SS.getSheetByName(SHEET.USER_MGMT);
+  if (!sheet || sheet.getLastRow() < 2) return;
+
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][0]).trim() === userId) {
+      sheet.getRange(i + 2, 4).setValue('');
+      return;
+    }
+  }
+}
+
+/**
+ * ニックネームまたは Misskey 表示名を解決する。
+ * @param {Object|null} userData getUserData_() の戻り値
+ * @param {Object} note Webhook の note オブジェクト
+ * @returns {string|null} 呼び名（なければ null）
+ * @private
+ */
+function resolveDisplayName_(userData, note) {
+  // 1. ユーザー管理シートのニックネーム（D列）
+  if (userData && userData.nickname) {
+    return userData.nickname;
+  }
+
+  // 2. Misskey の表示名（user.name）にフォールバック
+  var name = note && note.user && note.user.name;
+  if (name && String(name).trim()) {
+    return String(name).trim();
+  }
+
+  return null;
 }
