@@ -38,8 +38,19 @@ function getCharacterSetting_(key) {
 
   var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
   for (var i = 0; i < data.length; i++) {
-    if (String(data[i][0]).trim() === key) {
-      return String(data[i][1]).trim() || null;
+    var rawKey = String(data[i][0]).trim();
+    var rawVal = String(data[i][1]).trim();
+
+    if (!rawVal) {
+      var match = rawKey.match(/^([^\s　]+)[\s　]+(.+)$/);
+      if (match) {
+        rawKey = match[1];
+        rawVal = match[2];
+      }
+    }
+
+    if (rawKey === key) {
+      return rawVal || null;
     }
   }
   return null;

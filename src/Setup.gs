@@ -43,7 +43,7 @@ function testProcessTimelinePost()  { var c = getConfig(); c._forceTest = true; 
 /** @returns {void} */
 function testProcessPollPost()      { var c = getConfig(); c._forceTest = true; processPollPost(c); }
 /** @returns {void} */
-function testProcessReaction()      { processReaction(getConfig()); }
+function testProcessReaction()      { var c = getConfig(); c._forceTest = true; processReaction(c); }
 /** @returns {void} */
 function testProcessHoroscope()     { var c = getConfig(); c._forceTest = true; processHoroscope(c); }
 

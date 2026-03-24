@@ -438,7 +438,8 @@ function processReaction(config) {
   if (String(config.REACTION_ENABLED).toUpperCase() !== 'TRUE') return;
 
   // 間隔チェック（毎回実行可能だが負荷軽減のため）
-  if (!isIntervalElapsed_('REACTION', 1)) return;
+  var force = config._forceTest === true;
+  if (!force && !isIntervalElapsed_('REACTION', 1)) return;
 
   var sheet = SS.getSheetByName(SHEET.REACTION);
   if (!sheet || sheet.getLastRow() < 2) return;
@@ -1030,8 +1031,20 @@ function getCharacterSetting_(key) {
 
   var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
   for (var i = 0; i < data.length; i++) {
-    if (String(data[i][0]).trim() === key) {
-      return String(data[i][1]).trim() || null;
+    var rawKey = String(data[i][0]).trim();
+    var rawVal = String(data[i][1]).trim();
+
+    // ユーザーが1つのセルに「キー 値」や「キー[TAB]値」の形で貼り付けてしまった場合のフォールバック（A列のみに値が入りB列が空の場合）
+    if (!rawVal) {
+      var match = rawKey.match(/^([^\s　]+)[\s　]+(.+)$/);
+      if (match) {
+        rawKey = match[1];
+        rawVal = match[2];
+      }
+    }
+
+    if (rawKey === key) {
+      return rawVal || null;
     }
   }
   return null;
