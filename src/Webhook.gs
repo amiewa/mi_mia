@@ -181,7 +181,7 @@ function handleMention(body, config) {
   // 呼び名の解決
   var displayName = resolveDisplayName_(userData, note);
   if (displayName) {
-    systemPrompt += '\n\n相手の呼び名は' + displayName;
+    systemPrompt += '\n\n相手の呼び名は「' + displayName + '」。会話中は相手を「' + displayName + '」と呼ぶこと。';
   }
 
   // 会話履歴の取得（マルチターン）
