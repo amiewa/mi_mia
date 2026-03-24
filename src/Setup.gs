@@ -22,6 +22,8 @@ function onOpen() {
       .addItem('投票投稿', 'testProcessPollPost')
       .addItem('リアクション', 'testProcessReaction')
       .addItem('星座占い', 'testProcessHoroscope')
+      .addSeparator()
+      .addItem('日次メンテナンス（強制実行）', 'testRunDailyMaintenance')
     )
     .addToUi();
 }
@@ -46,6 +48,8 @@ function testProcessPollPost()      { var c = getConfig(); c._forceTest = true; 
 function testProcessReaction()      { var c = getConfig(); c._forceTest = true; processReaction(c); }
 /** @returns {void} */
 function testProcessHoroscope()     { var c = getConfig(); c._forceTest = true; processHoroscope(c); }
+/** 0時台チェックと実行済みチェックをスキップして日次メンテナンスを強制実行する。 */
+function testRunDailyMaintenance()  { var c = getConfig(); c._forceTest = true; runDailyMaintenance(c); }
 
 /**
  * 15シートを作成する（冪等: 既存シートはスキップ）。
