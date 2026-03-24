@@ -1,6 +1,6 @@
 {
   "name": "mi_mia",
-  "version": "2.4.2",
+  "version": "2.5.0",
   "description": "mi_mia v2 GAS project",
   "scripts": {
     "lint": "eslint --ext .gs src/",
