@@ -69,6 +69,7 @@ function logError(functionName, message) {
       var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
       sheet.appendRow([now, functionName, message]);
     }
+    incrementCounter('ERROR');
   } catch (e) {
     Logger.log('[logError] シート書き込み失敗: ' + e.message);
   }

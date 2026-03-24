@@ -46,7 +46,8 @@
     "processTimelinePost": "readonly",
     "processPollPost": "readonly",
     "processReaction": "readonly",
-    "processHoroscope": "readonly"
+    "processHoroscope": "readonly",
+    "runDailyMaintenance": "readonly"
   },
   "parserOptions": {
     "ecmaVersion": 2020,
@@ -54,7 +55,7 @@
   },
   "rules": {
     "no-unused-vars": ["warn", {
-      "varsIgnorePattern": "^(doPost|onOpen|mainDispatcher|setupSpreadsheet|validateConfig|manageApiTokens|runFollowSync|executeAutoDelete|processHoroscope|generateDialogues|SHEET|SS|SCRIPT_START|isTimeSafe|isNightTime|isAIDailyLimitReached|getConfig|callMisskeyApi|postNote|callLLM|cleanNoteText|loadNGWords|containsNGWord|filterTimelineNotes|logError|incrementCounter|getCharacterPrompt_|getCharacterSetting_|normalizeRelation|getAffinityRank_|getFallbackReply_|testProcessRandomPost|testProcessEventPost|testProcessWeekdayPost|testProcessScheduledPost|testProcessTimelinePost|testProcessPollPost|testProcessReaction|testProcessHoroscope)"
+      "varsIgnorePattern": "^(doPost|onOpen|mainDispatcher|setupSpreadsheet|validateConfig|manageApiTokens|runFollowSync|executeAutoDelete|processHoroscope|generateDialogues|SHEET|SS|SCRIPT_START|isTimeSafe|isNightTime|isAIDailyLimitReached|getConfig|callMisskeyApi|postNote|callLLM|cleanNoteText|loadNGWords|containsNGWord|filterTimelineNotes|logError|incrementCounter|getCharacterPrompt_|getCharacterSetting_|normalizeRelation|getAffinityRank_|getFallbackReply_|testProcessRandomPost|testProcessEventPost|testProcessWeekdayPost|testProcessScheduledPost|testProcessTimelinePost|testProcessPollPost|testProcessReaction|testProcessHoroscope|testRunDailyMaintenance)"
     }],
     "no-undef": "error",
     "no-redeclare": ["error", { "builtinGlobals": false }],

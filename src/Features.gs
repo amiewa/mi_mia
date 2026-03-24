@@ -11,6 +11,10 @@
 function mainDispatcher() {
   var config = getConfig();
   if (String(config.BOT_ACTIVE).toUpperCase() !== 'TRUE') return;
+
+  // === 日次メンテナンス（0時台のみ・夜間でも実行） ===
+  if (isTimeSafe()) runDailyMaintenance(config);
+
   if (isNightTime(config)) return;
 
   // 投稿タイムスタンプのランダム化（0〜120秒）
@@ -24,9 +28,6 @@ function mainDispatcher() {
   if (isTimeSafe()) processPollPost(config);
   if (isTimeSafe()) processReaction(config);
   if (isTimeSafe()) processHoroscope(config);
-
-  // === 日次メンテナンス（0時台のみ） ===
-  if (isTimeSafe()) runDailyMaintenance(config);
 }
 
 /**
@@ -668,14 +669,16 @@ function generateScoreHoroscope_() {
 function runDailyMaintenance(config) {
   if (String(config.MAINTENANCE_ENABLED).toUpperCase() !== 'TRUE') return;
 
-  // 0時台チェック
-  var currentHour = parseInt(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'H'));
-  if (currentHour !== 0) return;
+  // 0時台チェック（強制実行時はスキップ）
+  if (!config._forceTest) {
+    var currentHour = parseInt(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'H'));
+    if (currentHour !== 0) return;
+  }
 
-  // 本日既に実行済みかチェック
+  // 本日既に実行済みかチェック（強制実行時はスキップ）
   var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
   var props = PropertiesService.getScriptProperties();
-  if (props.getProperty('LAST_MAINTENANCE_DATE') === today) return;
+  if (!config._forceTest && props.getProperty('LAST_MAINTENANCE_DATE') === today) return;
 
   // --- ダッシュボード書き込み ---
   // 0時台に実行されるため、前日のデータを記録する
