@@ -450,7 +450,7 @@ function processReaction(config) {
 
   // 直近のTLを取得
   try {
-    var notes = callMisskeyApi('notes/local-timeline', { limit: 10 });
+    var notes = callMisskeyApi('notes/hybrid-timeline', { limit: 10 });
     var recencyMinutes = parseInt(config.REACTION_RECENCY_MINUTES) || 30;
     var threshold = Date.now() - recencyMinutes * 60000;
     var ownUserId = config.OWN_USER_ID || '';
