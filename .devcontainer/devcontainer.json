@@ -17,5 +17,8 @@
     }
   },
   "postCreateCommand": "npm install -g @anthropic-ai/claude-code @google/clasp typescript @types/google-apps-script",
-  "remoteUser": "node"
+  "remoteUser": "node",
+  "remoteEnv": {
+    "TZ": "Asia/Tokyo"
+  }
 }

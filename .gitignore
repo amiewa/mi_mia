@@ -22,6 +22,7 @@ AGENTS.md
 
 # Tooling
 .clasp.json
+.clasp.dist.json
 .clasprc.json
 *.gsheet
 

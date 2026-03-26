@@ -6,6 +6,8 @@
     "lint": "eslint --ext .gs src/",
     "test": "jest",
     "push": "clasp push",
+    "push:dist": "cp .clasp.json .clasp.json.bak && cp .clasp.dist.json .clasp.json && clasp push -f; cp .clasp.json.bak .clasp.json && rm .clasp.json.bak",
+    "push:all": "npm run push && npm run push:dist",
     "pull": "clasp pull",
     "watch": "clasp push --watch"
   },
