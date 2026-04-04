@@ -541,6 +541,144 @@ function callLLM(functionName, userPrompt, systemPrompt) {
 }
 
 /**
+ * Yahoo 日本語形態素解析 API V2 でテキストから名詞キーワードを抽出する。
+ * ScriptProperties に YAHOO_CLIENT_ID が未設定の場合は null を返す。
+ *
+ * @param {string} text 解析対象テキスト
+ * @returns {string[]|null} 名詞キーワード配列。失敗/未設定時は null
+ */
+function callYahooMA_(text) {
+  var clientId = PropertiesService.getScriptProperties().getProperty('YAHOO_CLIENT_ID');
+  if (!clientId) return null;
+
+  // Yahoo API V2 の1リクエスト上限は 4KB。安全マージンを取り約1200文字で切る
+  if (text.length > 1200) {
+    text = text.substring(0, 1200);
+  }
+
+  var payload = {
+    id: '1',
+    jsonrpc: '2.0',
+    method: 'jlp.maservice.parse',
+    params: { q: text }
+  };
+
+  try {
+    var response = UrlFetchApp.fetch('https://jlp.yahooapis.jp/MAService/V2/parse', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'User-Agent': 'Yahoo AppID: ' + clientId },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    incrementCounter('URL_FETCH');
+
+    if (response.getResponseCode() !== 200) return null;
+
+    var result = JSON.parse(response.getContentText());
+    if (result.error) return null;
+
+    // tokens: [表記, 読み, 基本形, 品詞, 品詞細分類, 活用型, 活用形]
+    var keywords = [];
+    var tokens = result.result.tokens;
+    for (var i = 0; i < tokens.length; i++) {
+      var surface = tokens[i][0]; // 表記
+      var pos = tokens[i][3];     // 品詞
+      var subPos = tokens[i][4];  // 品詞細分類
+
+      if (pos === '名詞' && (subPos === '普通名詞' || subPos === '固有名詞')) {
+        if (surface.length >= 2) {
+          keywords.push(surface);
+        }
+      }
+    }
+
+    return keywords.length > 0 ? keywords : null;
+  } catch (e) {
+    logError('callYahooMA_', e.message);
+    return null;
+  }
+}
+
+/**
+ * 正規表現ベースの簡易キーワード抽出（Yahoo API 不使用時/フォールバック）。
+ * カタカナ語（2文字以上）と括弧内フレーズを抽出する。
+ *
+ * @param {string} text 解析対象テキスト（複数ノート結合済み）
+ * @returns {string[]} キーワード配列（空配列の場合あり）
+ */
+function extractKeywordsSimple_(text) {
+  if (!text) return [];
+
+  var keywords = [];
+
+  // カタカナ語（2文字以上、長音含む）
+  var katakana = text.match(/[ァ-ヶー]{2,}/g);
+  if (katakana) {
+    for (var i = 0; i < katakana.length; i++) {
+      keywords.push(katakana[i]);
+    }
+  }
+
+  // 括弧内のフレーズ
+  var quoted = text.match(/「([^」]+)」/g);
+  if (quoted) {
+    for (var j = 0; j < quoted.length; j++) {
+      var inner = quoted[j].replace(/[「」]/g, '').trim();
+      if (inner.length >= 2) {
+        keywords.push(inner);
+      }
+    }
+  }
+
+  return keywords;
+}
+
+/**
+ * TL連動投稿用のキーワード抽出。設定に応じて Yahoo API または簡易抽出を使う。
+ * Yahoo API 失敗時は簡易抽出にフォールバックする。
+ *
+ * @param {string[]} cleanedTexts クリーニング済みノートテキストの配列
+ * @param {Object} config 設定オブジェクト
+ * @returns {string[]} 重複除去・NGフィルタ済みキーワード配列
+ */
+function extractTimelineKeywords_(cleanedTexts, config) {
+  if (!cleanedTexts || cleanedTexts.length === 0) return [];
+
+  var combined = cleanedTexts.join(' ');
+
+  var rawKeywords = [];
+  var source = String(config.TIMELINE_POST_KEYWORD_SOURCE || 'simple').toLowerCase();
+
+  if (source === 'yahoo') {
+    rawKeywords = callYahooMA_(combined);
+    if (!rawKeywords || rawKeywords.length === 0) {
+      rawKeywords = extractKeywordsSimple_(combined);
+    }
+  } else {
+    rawKeywords = extractKeywordsSimple_(combined);
+  }
+
+  if (!rawKeywords || rawKeywords.length === 0) return [];
+
+  // NGワードフィルタ
+  var ngWords = loadNGWords(config);
+  var filtered = [];
+  for (var i = 0; i < rawKeywords.length; i++) {
+    if (!containsNGWord(rawKeywords[i], ngWords)) {
+      filtered.push(rawKeywords[i]);
+    }
+  }
+
+  // 重複除去
+  var unique = filtered.filter(function(v, idx, arr) {
+    return arr.indexOf(v) === idx;
+  });
+
+  return unique;
+}
+
+/**
  * Gemini API (v1beta) を呼び出す。
  * @param {Object} config 設定オブジェクト
  * @param {string} userPrompt ユーザープロンプト
