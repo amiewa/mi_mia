@@ -430,37 +430,71 @@ function extractPollChoices_(config) {
 
     var notes = callMisskeyApi(endpoint, { limit: 30 });
     var filtered = filterTimelineNotes(notes, config);
+    if (!filtered || filtered.length === 0) return [];
 
-    // 名詞的なキーワードを正規表現で抽出（簡易）
-    var wordCounts = {};
     var ngWords = loadNGWords(config);
+    var source = String(config.POLL_KEYWORD_SOURCE || 'simple').toLowerCase();
+    var choices = [];
 
-    for (var i = 0; i < filtered.length; i++) {
-      var text = filtered[i].cleanedText;
-      // カタカナ語（3文字以上）を抽出
-      var katakana = text.match(/[\u30A0-\u30FF]{3,}/g) || [];
-      // 英単語（4文字以上）を抽出
-      var english = text.match(/[A-Za-z]{4,}/g) || [];
-      var words = katakana.concat(english);
-
-      for (var j = 0; j < words.length; j++) {
-        var w = words[j];
-        if (!containsNGWord(w, ngWords)) {
-          wordCounts[w] = (wordCounts[w] || 0) + 1;
+    if (source === 'yahoo') {
+      var combined = filtered.map(function(n) { return n.cleanedText; }).join(' ');
+      var yahooWords = callYahooMA_(combined);
+      if (!yahooWords || yahooWords.length === 0) {
+        if (config._forceTest) Logger.log('[POLL keyword] Yahoo API 失敗/未設定 → 簡易抽出にフォールバック');
+        choices = extractPollChoicesSimple_(filtered, ngWords);
+      } else {
+        if (config._forceTest) Logger.log('[POLL keyword] Yahoo API 使用: ' + yahooWords.join(', '));
+        // NGワードフィルタ
+        var filteredWords = [];
+        for (var i = 0; i < yahooWords.length; i++) {
+          if (!containsNGWord(yahooWords[i], ngWords)) {
+            filteredWords.push(yahooWords[i]);
+          }
         }
+        choices = filteredWords.slice(0, 4);
       }
+    } else {
+      if (config._forceTest) Logger.log('[POLL keyword] 簡易抽出使用 (source=' + source + ')');
+      choices = extractPollChoicesSimple_(filtered, ngWords);
     }
 
-    // 出現頻度順にソートして上位を選択肢にする
-    var sorted = Object.keys(wordCounts).sort(function (a, b) {
-      return wordCounts[b] - wordCounts[a];
-    });
-
-    return sorted.slice(0, 4);
+    if (config._forceTest) Logger.log('[POLL keyword] 最終選択肢: ' + choices.join(', '));
+    return choices;
   } catch (e) {
     logError('extractPollChoices_', e.message);
     return [];
   }
+}
+
+/**
+ * 正規表現による簡易キーワード抽出（カタカナ語・英単語）で投票選択肢を生成する。
+ * @param {Object[]} filtered フィルタ済みノート配列
+ * @param {string[]} ngWords NGワード配列
+ * @returns {string[]} 選択肢配列（最大4件）
+ * @private
+ */
+function extractPollChoicesSimple_(filtered, ngWords) {
+  var wordCounts = {};
+
+  for (var i = 0; i < filtered.length; i++) {
+    var text = filtered[i].cleanedText;
+    var katakana = text.match(/[\u30A0-\u30FF]{3,}/g) || [];
+    var english = text.match(/[A-Za-z]{4,}/g) || [];
+    var words = katakana.concat(english);
+
+    for (var j = 0; j < words.length; j++) {
+      var w = words[j];
+      if (!containsNGWord(w, ngWords)) {
+        wordCounts[w] = (wordCounts[w] || 0) + 1;
+      }
+    }
+  }
+
+  var sorted = Object.keys(wordCounts).sort(function (a, b) {
+    return wordCounts[b] - wordCounts[a];
+  });
+
+  return sorted.slice(0, 4);
 }
 
 // --------------- リアクション (F08) ---------------

@@ -176,7 +176,8 @@ function setupSpreadsheet() {
         ['NICKNAME_MAX_LENGTH', '20', 'ニックネームの最大文字数'],
         ['REPLY_MODE', 'no_ai', 'リプライモード: no_ai（キーワード応答のみ）/ ai（LLM優先）'],
         ['TIMELINE_POST_MODE', 'template', 'TL連動投稿モード: template / ai'],
-        ['TIMELINE_POST_KEYWORD_SOURCE', 'simple', 'キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）']
+        ['TIMELINE_POST_KEYWORD_SOURCE', 'simple', 'キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）'],
+        ['POLL_KEYWORD_SOURCE', 'simple', 'POLL用キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）']
       ]
     },
     {
@@ -354,7 +355,8 @@ function setupSpreadsheet() {
     var newSettings = [
       ['REPLY_MODE', 'no_ai', 'リプライモード: no_ai（キーワード応答のみ）/ ai（LLM優先）'],
       ['TIMELINE_POST_MODE', 'template', 'TL連動投稿モード: template / ai'],
-      ['TIMELINE_POST_KEYWORD_SOURCE', 'simple', 'キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）']
+      ['TIMELINE_POST_KEYWORD_SOURCE', 'simple', 'キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）'],
+      ['POLL_KEYWORD_SOURCE', 'simple', 'POLL用キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）']
     ];
     for (var ns = 0; ns < newSettings.length; ns++) {
       if (existingKeys.indexOf(newSettings[ns][0]) === -1) {
@@ -506,6 +508,17 @@ function validateConfig() {
     var yahooId = PropertiesService.getScriptProperties().getProperty('YAHOO_CLIENT_ID');
     if (!yahooId) {
       errors.push('TIMELINE_POST_KEYWORD_SOURCE=yahoo ですが ScriptProperties に YAHOO_CLIENT_ID が未設定です');
+    }
+  }
+
+  var pollKwSource = String(config.POLL_KEYWORD_SOURCE || 'simple').toLowerCase();
+  if (pollKwSource !== 'simple' && pollKwSource !== 'yahoo') {
+    errors.push('POLL_KEYWORD_SOURCE は "simple" または "yahoo" を指定してください');
+  }
+  if (pollKwSource === 'yahoo') {
+    var yahooIdPoll = PropertiesService.getScriptProperties().getProperty('YAHOO_CLIENT_ID');
+    if (!yahooIdPoll) {
+      errors.push('POLL_KEYWORD_SOURCE=yahoo ですが ScriptProperties に YAHOO_CLIENT_ID が未設定です');
     }
   }
 
