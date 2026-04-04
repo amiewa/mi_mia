@@ -301,6 +301,109 @@ function getFallbackReply_() {
 }
 
 /**
+ * キーワード応答シートからマッチする応答を検索する。
+ *
+ * マッチングロジック:
+ *   1. cleanedText に対して各行のキーワードを部分一致検索
+ *   2. ヒット全行を収集（キーワード違い・親愛度違い問わず全マージ）
+ *   3. 親愛度 ≤ affinityRank でフィルタ
+ *   4. 最高親愛度の行群だけを抽出
+ *   5. ランダムに1件選択
+ *   6. {name} プレースホルダーを呼び名で置換
+ *
+ * @param {string} cleanedText クリーニング済みメンションテキスト
+ * @param {number} affinityRank ユーザーの好感度ランク (1-3)
+ * @param {Object|null} userData getUserData_() の戻り値
+ * @param {Object} note Webhook の note オブジェクト
+ * @returns {string|null} マッチした応答テキスト。該当なしは null
+ */
+function matchKeywordReply_(cleanedText, affinityRank, userData, note) {
+  if (!cleanedText) return null;
+
+  // キーワード応答シート取得（CacheService でキャッシュ: 5分TTL）
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'keyword_reply_cache';
+  var rows = null;
+  var cached = cache.get(cacheKey);
+
+  if (cached) {
+    try {
+      rows = JSON.parse(cached);
+    } catch (e) {
+      rows = null;
+    }
+  }
+
+  if (!rows) {
+    var sheet = SS.getSheetByName(SHEET.KEYWORD_REPLY);
+    if (!sheet || sheet.getLastRow() < 2) return null;
+
+    rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+    try {
+      cache.put(cacheKey, JSON.stringify(rows), 300);
+    } catch (e) {
+      // キャッシュ保存失敗は無視（データ量超過時）
+    }
+  }
+
+  if (!rows || rows.length === 0) return null;
+
+  var lowerText = cleanedText.toLowerCase();
+
+  // 1-2. 全行スキャンしてヒットを収集
+  var candidates = [];
+  for (var i = 0; i < rows.length; i++) {
+    var keyword = String(rows[i][0]).trim().toLowerCase();
+    var rank = parseInt(rows[i][1]) || 1;
+    var message = String(rows[i][2]).trim();
+
+    if (!keyword || !message) continue;
+    if (lowerText.indexOf(keyword) !== -1) {
+      candidates.push({ rank: rank, message: message });
+    }
+  }
+
+  if (candidates.length === 0) return null;
+
+  // 3. 親愛度 ≤ affinityRank でフィルタ
+  var eligible = [];
+  for (var j = 0; j < candidates.length; j++) {
+    if (candidates[j].rank <= affinityRank) {
+      eligible.push(candidates[j]);
+    }
+  }
+
+  if (eligible.length === 0) return null;
+
+  // 4. 最高親愛度の行群だけを抽出
+  var maxRank = 0;
+  for (var k = 0; k < eligible.length; k++) {
+    if (eligible[k].rank > maxRank) maxRank = eligible[k].rank;
+  }
+
+  var topCandidates = [];
+  for (var l = 0; l < eligible.length; l++) {
+    if (eligible[l].rank === maxRank) {
+      topCandidates.push(eligible[l]);
+    }
+  }
+
+  // 5. ランダム選択
+  var selected = topCandidates[Math.floor(Math.random() * topCandidates.length)];
+  var result = selected.message;
+
+  // 6. {name} プレースホルダーの置換
+  var displayName = resolveDisplayName_(userData, note);
+  if (displayName) {
+    result = result.replace(/\{name\}/g, displayName);
+  } else {
+    result = result.replace(/\{name\}\s?/g, '');
+  }
+
+  return result;
+}
+
+/**
  * キーワードフォローバック判定。
  * @param {Object} config 設定オブジェクト
  * @param {string} text テキスト
