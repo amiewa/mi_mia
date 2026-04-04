@@ -654,9 +654,13 @@ function extractTimelineKeywords_(cleanedTexts, config) {
   if (source === 'yahoo') {
     rawKeywords = callYahooMA_(combined);
     if (!rawKeywords || rawKeywords.length === 0) {
+      if (config._forceTest) Logger.log('[TL keyword] Yahoo API 失敗/未設定 → 簡易抽出にフォールバック');
       rawKeywords = extractKeywordsSimple_(combined);
+    } else {
+      if (config._forceTest) Logger.log('[TL keyword] Yahoo API 使用: ' + rawKeywords.join(', '));
     }
   } else {
+    if (config._forceTest) Logger.log('[TL keyword] 簡易抽出使用 (source=' + source + ')');
     rawKeywords = extractKeywordsSimple_(combined);
   }
 
