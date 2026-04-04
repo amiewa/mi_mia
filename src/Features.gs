@@ -219,21 +219,20 @@ function processTimelinePost(config) {
   if (!isTimeSafe()) return false;
 
   var force = config._forceTest === true;
+  var mode = String(config.TIMELINE_POST_MODE || 'template').toLowerCase();
 
   if (!force) {
-    // 間隔チェック
     var intervalHours = parseInt(config.TIMELINE_POST_INTERVAL_HOURS) || 6;
     if (!isIntervalElapsed_('TIMELINE', intervalHours)) return false;
 
-    // 確率チェック
     var chance = parseInt(config.TIMELINE_POST_CHANCE) || 70;
     if (Math.random() * 100 >= chance) return false;
 
-    // 日次LLM上限チェック
-    if (isAIDailyLimitReached(config)) return false;
+    // ai モード時のみ LLM 日次上限チェック
+    if (mode === 'ai' && isAIDailyLimitReached(config)) return false;
   }
 
-  // タイムライン取得
+  // タイムライン取得（共通）
   var tlType = config.TIMELINE_POST_TYPE || 'local';
   var endpoint = 'notes/local-timeline';
   if (tlType === 'home') endpoint = 'notes/timeline';
@@ -246,27 +245,62 @@ function processTimelinePost(config) {
 
     if (filtered.length === 0) return false;
 
-    // フィルタ済みノートからTLの話題をまとめる
-    var tlSummary = [];
-    for (var i = 0; i < Math.min(filtered.length, 10); i++) {
-      tlSummary.push(filtered[i].cleanedText);
+    var text = null;
+
+    if (mode === 'ai') {
+      // ===== AI モード（既存処理を維持） =====
+      var tlSummary = [];
+      for (var i = 0; i < Math.min(filtered.length, 10); i++) {
+        tlSummary.push(filtered[i].cleanedText);
+      }
+
+      var systemPrompt = getCharacterPrompt_();
+      var nowStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy年M月d日 H時');
+
+      var userPrompt = '現在: ' + nowStr + '\n\n' +
+        'タイムラインで以下のような投稿が流れています:\n' +
+        tlSummary.join('\n') + '\n\n' +
+        'これらを眺めて、ふと気になったことや感想を、' +
+        '2〜3文程度の短い雑談として投稿してください。';
+
+      text = callLLM('timeline_post', userPrompt, systemPrompt);
+      if (!text) return false;
+
+    } else {
+      // ===== template モード =====
+      var cleanedTexts = [];
+      for (var j = 0; j < filtered.length; j++) {
+        if (filtered[j].cleanedText) {
+          cleanedTexts.push(filtered[j].cleanedText);
+        }
+      }
+
+      var keywords = extractTimelineKeywords_(cleanedTexts, config);
+      if (keywords.length === 0) return false;
+
+      var selectedKeyword = keywords[Math.floor(Math.random() * keywords.length)];
+
+      var templateRaw = getCharacterSetting_('TL連動テンプレート');
+      if (!templateRaw) return false;
+
+      var templates = templateRaw.split('\n').filter(function(line) {
+        return line.trim() && line.indexOf('{keyword}') !== -1;
+      });
+
+      if (templates.length === 0) return false;
+
+      var selectedTemplate = templates[Math.floor(Math.random() * templates.length)];
+      text = selectedTemplate.replace(/\{keyword\}/g, selectedKeyword);
     }
 
-    // キャラクタープロンプト取得
-    var systemPrompt = getCharacterPrompt_();
-
-    // LLM呼び出し（1回で統合）
-    var userPrompt = '以下はタイムラインの最近の話題です。これらの中から気になったことについて、短い雑談投稿を1つ書いてください（200文字以内）。\n\n' +
-      tlSummary.join('\n---\n');
-
-    var result = callLLM('timeline_post', userPrompt, systemPrompt);
-    if (!result) return false;
-
-    var note = postNote(config, result, { postType: 'timeline' });
-    if (note) {
+    // 投稿（共通）
+    var result = postNote(config, text, { postType: 'timeline' });
+    if (result) {
       setLastRunTime_('TIMELINE');
       return true;
     }
+    return false;
+
   } catch (e) {
     logError('processTimelinePost', e.message);
   }

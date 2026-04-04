@@ -42,6 +42,48 @@ function testProcessWeekdayPost()   { processWeekdayPost(getConfig()); }
 function testProcessScheduledPost() { processScheduledPost(getConfig()); }
 /** @returns {void} */
 function testProcessTimelinePost()  { var c = getConfig(); c._forceTest = true; processTimelinePost(c); }
+
+/**
+ * TL連動投稿（templateモード）のテスト。
+ */
+function testProcessTimelinePostTemplate() {
+  var config = getConfig();
+  config.TIMELINE_POST_MODE = 'template';
+  config._forceTest = true;
+  var result = processTimelinePost(config);
+  Logger.log('TL連動投稿(template)テスト: ' + (result ? '投稿成功' : '投稿なし'));
+}
+
+/**
+ * キーワード応答マッチングのテスト。
+ */
+function testKeywordReplyMatch() {
+  var testText = 'おはよう';
+
+  var r1 = matchKeywordReply_(testText, 1, null, {});
+  Logger.log('rank1「' + testText + '」→ ' + (r1 || '(該当なし)'));
+
+  var r2 = matchKeywordReply_(testText, 2, null, {});
+  Logger.log('rank2「' + testText + '」→ ' + (r2 || '(該当なし)'));
+
+  var r3 = matchKeywordReply_(testText, 3, null, {});
+  Logger.log('rank3「' + testText + '」→ ' + (r3 || '(該当なし)'));
+
+  var noMatch = matchKeywordReply_('あいうえお', 1, null, {});
+  Logger.log('rank1「あいうえお」→ ' + (noMatch || '(該当なし)'));
+}
+
+/**
+ * Yahoo形態素解析APIのテスト。
+ */
+function testYahooMA() {
+  var result = callYahooMA_('今日はいい天気ですね。プログラミングを勉強しています。');
+  if (result) {
+    Logger.log('Yahoo API 抽出結果: ' + result.join(', '));
+  } else {
+    Logger.log('Yahoo API: 結果なし（YAHOO_CLIENT_ID 未設定 or API エラー）');
+  }
+}
 /** @returns {void} */
 function testProcessPollPost()      { var c = getConfig(); c._forceTest = true; processPollPost(c); }
 /** @returns {void} */
@@ -131,7 +173,10 @@ function setupSpreadsheet() {
         ['ERROR_NOTIFY_EMAIL', '', '通知先メールアドレス'],
         ['CONV_MAX_TURNS', '3', '会話履歴の保持ターン数 (0=無効)'],
         ['NICKNAME_ENABLED', 'TRUE', 'ニックネーム登録機能（「○○って呼んで」）'],
-        ['NICKNAME_MAX_LENGTH', '20', 'ニックネームの最大文字数']
+        ['NICKNAME_MAX_LENGTH', '20', 'ニックネームの最大文字数'],
+        ['REPLY_MODE', 'no_ai', 'リプライモード: no_ai（キーワード応答のみ）/ ai（LLM優先）'],
+        ['TIMELINE_POST_MODE', 'template', 'TL連動投稿モード: template / ai'],
+        ['TIMELINE_POST_KEYWORD_SOURCE', 'simple', 'キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）']
       ]
     },
     {
@@ -267,6 +312,73 @@ function setupSpreadsheet() {
     created++;
   }
 
+  // --- キーワード応答シート（v2.6.0）---
+  if (!SS.getSheetByName(SHEET.KEYWORD_REPLY)) {
+    var kwSheet = SS.insertSheet(SHEET.KEYWORD_REPLY);
+    kwSheet.getRange('A1:C1').setValues([['キーワード', '親愛度', 'メッセージ']]);
+    kwSheet.getRange('A1:C1').setFontWeight('bold');
+    kwSheet.setFrozenRows(1);
+
+    var sampleData = [
+      ['おはよう', 1, 'おはよ～'],
+      ['おはよう', 2, '{name} おはよ～'],
+      ['おはよう', 3, 'おはよ～{name} よく眠れた～？'],
+      ['おやすみ', 1, 'おやすみ～'],
+      ['おやすみ', 2, '{name} おやすみ～'],
+      ['おやすみ', 3, 'おやすみ～{name} いい夢見てね～'],
+      ['ありがとう', 1, 'えへへ～'],
+      ['ありがとう', 2, '{name} どういたしまして～'],
+      ['かわいい', 1, 'えっ……ほんと～？'],
+      ['かわいい', 2, '{name}もかわいい～'],
+      ['すき', 1, 'え～照れる～'],
+      ['すき', 2, 'あたしも{name}のことすき～'],
+      ['つらい', 1, '大丈夫～？'],
+      ['つらい', 2, '{name} 無理しないでね～'],
+      ['ひま', 1, 'あたしもひま～'],
+      ['たすけて', 1, 'どうしたの～？']
+    ];
+    kwSheet.getRange(2, 1, sampleData.length, 3).setValues(sampleData);
+    kwSheet.setColumnWidth(1, 120);
+    kwSheet.setColumnWidth(2, 70);
+    kwSheet.setColumnWidth(3, 300);
+    created++;
+  } else {
+    skipped++;
+  }
+
+  // --- v2.6.0 新規設定キーを既存 CONFIG シートに追記（アップグレード対応）---
+  var configSheet = SS.getSheetByName(SHEET.CONFIG);
+  if (configSheet && configSheet.getLastRow() >= 2) {
+    var existingKeys = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 1).getValues()
+      .map(function(row) { return String(row[0]).trim(); });
+    var newSettings = [
+      ['REPLY_MODE', 'no_ai', 'リプライモード: no_ai（キーワード応答のみ）/ ai（LLM優先）'],
+      ['TIMELINE_POST_MODE', 'template', 'TL連動投稿モード: template / ai'],
+      ['TIMELINE_POST_KEYWORD_SOURCE', 'simple', 'キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）']
+    ];
+    for (var ns = 0; ns < newSettings.length; ns++) {
+      if (existingKeys.indexOf(newSettings[ns][0]) === -1) {
+        configSheet.appendRow(newSettings[ns]);
+      }
+    }
+  }
+
+  // --- TL連動テンプレートをキャラクター設定シートに追加（T9: v2.6.0）---
+  var charSheet = SS.getSheetByName(SHEET.CHARACTER_SETTINGS);
+  if (charSheet) {
+    var charData = charSheet.getLastRow() >= 2
+      ? charSheet.getRange(2, 1, charSheet.getLastRow() - 1, 1).getValues()
+      : [];
+    var existingCharKeys = charData.map(function(row) { return String(row[0]).trim(); });
+
+    if (existingCharKeys.indexOf('TL連動テンプレート') === -1) {
+      charSheet.appendRow([
+        'TL連動テンプレート',
+        '{keyword}……　きになる～\n{keyword}かあ……　ん～なんだろ\n{keyword}ってみんな言ってる～\nTLに{keyword}がいっぱい～'
+      ]);
+    }
+  }
+
   // OWN_USER_ID を自動取得（MISSKEY_TOKEN が設定済みの場合）
   try {
     var config = getConfig();
@@ -357,6 +469,48 @@ function validateConfig() {
   // OWN_USER_ID チェック
   if (!config.OWN_USER_ID) {
     warnings.push('OWN_USER_ID が未設定です（初期設定を実行すると自動取得されます）');
+  }
+
+  // --- v2.6.0 追加チェック ---
+
+  var replyMode = String(config.REPLY_MODE || 'no_ai').toLowerCase();
+  if (replyMode !== 'no_ai' && replyMode !== 'ai') {
+    errors.push('REPLY_MODE は "no_ai" または "ai" を指定してください（現在: ' + config.REPLY_MODE + '）');
+  }
+  if (replyMode === 'ai' && (!config.AI_PROVIDER || config.AI_PROVIDER === 'none')) {
+    warnings.push('REPLY_MODE=ai ですが AI_PROVIDER=none です。キーワード応答→定型文にフォールバックします');
+  }
+
+  var tlMode = String(config.TIMELINE_POST_MODE || 'template').toLowerCase();
+  if (tlMode !== 'template' && tlMode !== 'ai') {
+    errors.push('TIMELINE_POST_MODE は "template" または "ai" を指定してください（現在: ' + config.TIMELINE_POST_MODE + '）');
+  }
+  if (tlMode === 'ai' && (!config.AI_PROVIDER || config.AI_PROVIDER === 'none')) {
+    warnings.push('TIMELINE_POST_MODE=ai ですが AI_PROVIDER=none です。TL連動投稿はランダム投稿にフォールバックします');
+  }
+
+  if (tlMode === 'template') {
+    var tlTemplate = getCharacterSetting_('TL連動テンプレート');
+    if (!tlTemplate) {
+      errors.push('TIMELINE_POST_MODE=template ですが、キャラクター設定シートに「TL連動テンプレート」が未設定です');
+    } else if (tlTemplate.indexOf('{keyword}') === -1) {
+      errors.push('TL連動テンプレートに {keyword} プレースホルダーが含まれていません');
+    }
+  }
+
+  var kwSource = String(config.TIMELINE_POST_KEYWORD_SOURCE || 'simple').toLowerCase();
+  if (kwSource !== 'simple' && kwSource !== 'yahoo') {
+    errors.push('TIMELINE_POST_KEYWORD_SOURCE は "simple" または "yahoo" を指定してください');
+  }
+  if (kwSource === 'yahoo') {
+    var yahooId = PropertiesService.getScriptProperties().getProperty('YAHOO_CLIENT_ID');
+    if (!yahooId) {
+      errors.push('TIMELINE_POST_KEYWORD_SOURCE=yahoo ですが ScriptProperties に YAHOO_CLIENT_ID が未設定です');
+    }
+  }
+
+  if (!SS.getSheetByName(SHEET.KEYWORD_REPLY)) {
+    warnings.push('キーワード応答シートが見つかりません。メニューから「初期セットアップ」を実行してください');
   }
 
   // 結果表示

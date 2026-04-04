@@ -165,45 +165,74 @@ function handleMention(body, config) {
   var userData = getUserData_(userId);
   var talkCount = userData ? userData.talkCount : 0;
 
-  // プロンプト構築
-  var systemPrompt = getCharacterPrompt_();
+  // ===== REPLY_MODE 分岐 =====
 
-  // 好感度ランクに応じた追加指示
-  var affinityPrompt = getAffinityRank_(config, talkCount);
-  if (affinityPrompt) {
-    systemPrompt += '\n\n' + affinityPrompt;
+  var replyMode = String(config.REPLY_MODE || 'no_ai').toLowerCase();
+
+  // 好感度ランク算出（キーワード応答の親愛度フィルタに使用）
+  var affinityRank = 1;
+  if (String(config.AFFINITY_ENABLED).toUpperCase() === 'TRUE') {
+    var rank2Threshold = parseInt(config.AFFINITY_RANK2_THRESHOLD) || 5;
+    var rank3Threshold = parseInt(config.AFFINITY_RANK3_THRESHOLD) || 20;
+    if (talkCount >= rank3Threshold) {
+      affinityRank = 3;
+    } else if (talkCount >= rank2Threshold) {
+      affinityRank = 2;
+    }
   }
 
-  // 現在日時の追加
-  var nowStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy年M月d日 H時');
-  systemPrompt += '\n\n現在: ' + nowStr;
-
-  // 呼び名の解決
-  var displayName = resolveDisplayName_(userData, note);
-  if (displayName) {
-    systemPrompt += '\n\n相手の呼び名は「' + displayName + '」。会話中は相手を「' + displayName + '」と呼ぶこと。';
-  }
-
-  // 会話履歴の取得（マルチターン）
+  var reply = null;
+  var replySource = 'fallback'; // 'ai' | 'keyword' | 'fallback'
   var maxTurns = parseInt(config.CONV_MAX_TURNS) || 3;
-  var history = getConversationHistory_(userId, maxTurns);
 
-  var userPrompt;
-  if (history.length > 0) {
-    userPrompt = '以下は直近の会話履歴です（古い順）:\n' + history.join('\n') +
-      '\n\n上記の流れを踏まえて、以下のメッセージに短く返信してください（100文字以内）:\n\n' + cleanedText;
-  } else {
-    userPrompt = '以下のメッセージに短く返信してください（100文字以内）:\n\n' + cleanedText;
+  if (replyMode === 'ai') {
+    // --- AI モード ---
+    var systemPrompt = getCharacterPrompt_();
+
+    var affinityPrompt = getAffinityRank_(config, talkCount);
+    if (affinityPrompt) {
+      systemPrompt += '\n\n' + affinityPrompt;
+    }
+
+    var nowStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy年M月d日 H時');
+    systemPrompt += '\n\n現在: ' + nowStr;
+
+    var displayName = resolveDisplayName_(userData, note);
+    if (displayName) {
+      systemPrompt += '\n\n相手の呼び名は「' + displayName + '」。会話中は相手を「' + displayName + '」と呼ぶこと。';
+    }
+
+    var history = getConversationHistory_(userId, maxTurns);
+
+    var userPrompt;
+    if (history.length > 0) {
+      userPrompt = '以下は直近の会話履歴です（古い順）:\n' + history.join('\n') +
+        '\n\n上記の流れを踏まえて、以下のメッセージに短く返信してください（100文字以内）:\n\n' + cleanedText;
+    } else {
+      userPrompt = '以下のメッセージに短く返信してください（100文字以内）:\n\n' + cleanedText;
+    }
+
+    reply = callLLM('reply', userPrompt, systemPrompt);
+
+    // LLM応答のNGワードチェック
+    if (reply && containsNGWord(reply, ngWords)) {
+      reply = null;
+    }
+
+    if (reply) {
+      replySource = 'ai';
+    }
   }
 
-  // LLM呼び出し
-  var reply = callLLM('reply', userPrompt, systemPrompt);
-
-  // LLM応答のNGワードチェック
-  if (reply && containsNGWord(reply, ngWords)) {
-    reply = null;
+  // AI モードで失敗、または no_ai モード → キーワード応答を試行
+  if (!reply) {
+    reply = matchKeywordReply_(cleanedText, affinityRank, userData, note);
+    if (reply) {
+      replySource = 'keyword';
+    }
   }
 
+  // キーワード応答も該当なし → フォールバック定型文
   if (!reply) {
     replyWithFallback_(config, noteId);
     incrementCounter('REPLY');
@@ -212,11 +241,11 @@ function handleMention(body, config) {
 
   // --- 重複防止 第3防衛: Misskey API で既返信チェック ---
   try {
-    var replies = callMisskeyApi('notes/replies', { noteId: noteId, limit: 5 });
+    var existingReplies = callMisskeyApi('notes/replies', { noteId: noteId, limit: 5 });
     var ownUserId = config.OWN_USER_ID || '';
-    for (var i = 0; i < replies.length; i++) {
-      if (replies[i].user && replies[i].user.id === ownUserId) {
-        return; // 既に返信済み
+    for (var r = 0; r < existingReplies.length; r++) {
+      if (existingReplies[r].user && existingReplies[r].user.id === ownUserId) {
+        return;
       }
     }
   } catch (e) {
@@ -232,7 +261,7 @@ function handleMention(body, config) {
   if (postedNote) {
     incrementCounter('REPLY');
 
-    // ユーザーデータ更新（好感度）
+    // 好感度加算（AI応答・キーワード応答ともに加算する）
     if (String(config.AFFINITY_ENABLED).toUpperCase() === 'TRUE') {
       updateUserData_(userId, talkCount + 1);
     }
@@ -240,8 +269,10 @@ function handleMention(body, config) {
     // 返信カウント更新
     props.setProperty(replyCountKey, String(replyCount + 1));
 
-    // 会話履歴を保存（マルチターン）
-    saveConversationTurn_(userId, cleanedText, reply, maxTurns);
+    // 会話履歴保存は AI リプライ成功時のみ
+    if (replySource === 'ai') {
+      saveConversationTurn_(userId, cleanedText, reply, maxTurns);
+    }
   }
 }
 
