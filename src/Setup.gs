@@ -544,7 +544,8 @@ function manageApiTokens() {
     'OLLAMA_BASE_URL',
     'OLLAMA_API_KEY',
     'OPENROUTER_API_KEY',
-    'OWN_USER_ID'
+    'OWN_USER_ID',
+    'YAHOO_CLIENT_ID'
   ];
 
   // 設定状況を確認してメニュー文字列を構築

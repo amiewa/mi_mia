@@ -227,7 +227,8 @@ function getConfig() {
   var secretKeys = [
     'MISSKEY_TOKEN', 'GEMINI_API_KEY',
     'OLLAMA_BASE_URL', 'OLLAMA_API_KEY',
-    'OPENROUTER_API_KEY', 'OWN_USER_ID'
+    'OPENROUTER_API_KEY', 'OWN_USER_ID',
+    'YAHOO_CLIENT_ID'
   ];
   for (var j = 0; j < secretKeys.length; j++) {
     var secretVal = props.getProperty(secretKeys[j]);
