@@ -20,7 +20,8 @@ var SHEET = {
   DASHBOARD: 'ダッシュボード',
   ERROR_LOG: 'エラーログ',
   POST_HISTORY: '投稿履歴',
-  FOLLOW_MGMT: 'フォロー管理'
+  FOLLOW_MGMT: 'フォロー管理',
+  KEYWORD_REPLY: 'キーワード応答'
 };
 
 var SS = SpreadsheetApp.getActiveSpreadsheet();
