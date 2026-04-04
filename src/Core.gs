@@ -564,20 +564,28 @@ function callYahooMA_(text) {
     params: { q: text }
   };
 
+  var url = 'https://jlp.yahooapis.jp/MAService/V2/parse?appid=' + encodeURIComponent(clientId);
+
   try {
-    var response = UrlFetchApp.fetch('https://jlp.yahooapis.jp/MAService/V2/parse', {
+    var response = UrlFetchApp.fetch(url, {
       method: 'post',
       contentType: 'application/json',
-      headers: { 'User-Agent': 'Yahoo AppID: ' + clientId },
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     });
     incrementCounter('URL_FETCH');
 
-    if (response.getResponseCode() !== 200) return null;
+    var code = response.getResponseCode();
+    if (code !== 200) {
+      logError('callYahooMA_', 'HTTP ' + code + ': ' + response.getContentText().substring(0, 200));
+      return null;
+    }
 
     var result = JSON.parse(response.getContentText());
-    if (result.error) return null;
+    if (result.error) {
+      logError('callYahooMA_', 'API error: ' + JSON.stringify(result.error));
+      return null;
+    }
 
     // tokens: [表記, 読み, 基本形, 品詞, 品詞細分類, 活用型, 活用形]
     var keywords = [];
