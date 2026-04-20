@@ -496,7 +496,6 @@ function mixWithStatic_(choices4, items, replaceCount) {
 
 /**
  * AI（callLLM）で質問文と4択を生成する。失敗時は null。
- * @param {Object} config
  * @returns {{question:string,choices:string[]}|null}
  * @private
  */
@@ -760,7 +759,6 @@ function processHoroscope(config) {
 
 /**
  * AIで星座占いを生成する。
- * @param {Object} config 設定オブジェクト
  * @returns {string|null} 占いテキスト
  * @private
  */
