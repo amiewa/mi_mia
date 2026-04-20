@@ -595,7 +595,8 @@ function callYahooMA_(text) {
       var pos = tokens[i][3];     // 品詞
       var subPos = tokens[i][4];  // 品詞細分類
 
-      if (pos === '名詞' && (subPos === '普通名詞' || subPos === '固有名詞')) {
+      var allowedSubPos = { '普通名詞': 1, '固有名詞': 1, 'サ変名詞': 1 };
+      if (pos === '名詞' && allowedSubPos[subPos]) {
         if (surface.length >= 2) {
           keywords.push(surface);
         }
@@ -637,6 +638,14 @@ function extractKeywordsSimple_(text) {
       if (inner.length >= 2) {
         keywords.push(inner);
       }
+    }
+  }
+
+  // 漢字2文字以上の連続
+  var kanji = text.match(/[\u4E00-\u9FFF]{2,}/g);
+  if (kanji) {
+    for (var k = 0; k < kanji.length; k++) {
+      keywords.push(kanji[k]);
     }
   }
 
@@ -689,6 +698,30 @@ function extractTimelineKeywords_(cleanedTexts, config) {
   });
 
   return unique;
+}
+
+/**
+ * 長さ加重でキーワードを1件抽選する。重み = max(1, length - 1)。
+ * 2文字語の過剰選択を抑え、3文字以上の語が自然に混ざるようにする。
+ * @param {string[]} keywords 候補配列
+ * @returns {string|null}
+ * @private
+ */
+function pickKeywordWeightedByLength_(keywords) {
+  if (!keywords || keywords.length === 0) return null;
+  var total = 0;
+  var weights = [];
+  for (var i = 0; i < keywords.length; i++) {
+    var w = Math.max(1, keywords[i].length - 1);
+    weights.push(w);
+    total += w;
+  }
+  var r = Math.random() * total;
+  for (var j = 0; j < keywords.length; j++) {
+    r -= weights[j];
+    if (r < 0) return keywords[j];
+  }
+  return keywords[keywords.length - 1];
 }
 
 /**

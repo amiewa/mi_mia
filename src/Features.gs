@@ -278,7 +278,7 @@ function processTimelinePost(config) {
       var keywords = extractTimelineKeywords_(cleanedTexts, config);
       if (keywords.length === 0) return false;
 
-      var selectedKeyword = keywords[Math.floor(Math.random() * keywords.length)];
+      var selectedKeyword = pickKeywordWeightedByLength_(keywords);
 
       var templateRaw = getCharacterSetting_('TL連動テンプレート');
       if (!templateRaw) return false;
@@ -451,7 +451,17 @@ function extractPollChoices_(config) {
             filteredWords.push(yahooWords[i]);
           }
         }
-        choices = filteredWords.slice(0, 4);
+        // 重複除去の上、長さ加重で非復元4件抽選
+        var uniq = filteredWords.filter(function(v, idx, arr) { return arr.indexOf(v) === idx; });
+        var picked = [];
+        var pool = uniq.slice();
+        for (var p = 0; p < 4 && pool.length > 0; p++) {
+          var one = pickKeywordWeightedByLength_(pool);
+          if (!one) break;
+          picked.push(one);
+          pool = pool.filter(function(v) { return v !== one; });
+        }
+        choices = picked;
       }
     } else {
       if (config._forceTest) Logger.log('[POLL keyword] 簡易抽出使用 (source=' + source + ')');

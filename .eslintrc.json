@@ -41,6 +41,7 @@
     "matchKeywordReply_": "readonly",
     "callYahooMA_": "readonly",
     "extractTimelineKeywords_": "readonly",
+    "pickKeywordWeightedByLength_": "readonly",
 
     "processRandomPost": "readonly",
     "processEventPost": "readonly",
@@ -58,7 +59,7 @@
   },
   "rules": {
     "no-unused-vars": ["warn", {
-      "varsIgnorePattern": "^(doPost|onOpen|mainDispatcher|setupSpreadsheet|validateConfig|manageApiTokens|runFollowSync|executeAutoDelete|processHoroscope|generateDialogues|SHEET|SS|SCRIPT_START|isTimeSafe|isNightTime|isAIDailyLimitReached|getConfig|callMisskeyApi|postNote|callLLM|cleanNoteText|loadNGWords|containsNGWord|filterTimelineNotes|logError|incrementCounter|getCharacterPrompt_|getCharacterSetting_|normalizeRelation|getAffinityRank_|getFallbackReply_|testProcessRandomPost|testProcessEventPost|testProcessWeekdayPost|testProcessScheduledPost|testProcessTimelinePost|testProcessPollPost|testProcessReaction|testProcessHoroscope|testRunDailyMaintenance|testKeywordReplyMatch|testYahooMA|extractTimelineKeywords_)"
+      "varsIgnorePattern": "^(doPost|onOpen|mainDispatcher|setupSpreadsheet|validateConfig|manageApiTokens|runFollowSync|executeAutoDelete|processHoroscope|generateDialogues|SHEET|SS|SCRIPT_START|isTimeSafe|isNightTime|isAIDailyLimitReached|getConfig|callMisskeyApi|postNote|callLLM|cleanNoteText|loadNGWords|containsNGWord|filterTimelineNotes|logError|incrementCounter|getCharacterPrompt_|getCharacterSetting_|normalizeRelation|getAffinityRank_|getFallbackReply_|testProcessRandomPost|testProcessEventPost|testProcessWeekdayPost|testProcessScheduledPost|testProcessTimelinePost|testProcessPollPost|testProcessReaction|testProcessHoroscope|testRunDailyMaintenance|testKeywordReplyMatch|testYahooMA|extractTimelineKeywords_|pickKeywordWeightedByLength_)"
     }],
     "no-undef": "error",
     "no-redeclare": ["error", { "builtinGlobals": false }],

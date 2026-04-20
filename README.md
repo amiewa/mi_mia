@@ -247,7 +247,7 @@ AI_INPUT_MAX_CHARS     = 2500            # 入力テキストの最大文字数
 | `TIMELINE_POST_CHANCE` | `70` | TL 連動投稿の実行確率（%） |
 | `TIMELINE_POST_TYPE` | `local` | TL 種別: `local` / `home` / `hybrid` / `global` |
 | `TIMELINE_POST_MODE` | `template` | TL 連動投稿モード: `template`（LLM不要）/ `ai` |
-| `TIMELINE_POST_KEYWORD_SOURCE` | `simple` | キーワード抽出方式: `simple`（正規表現）/ `yahoo`（Yahoo形態素解析API） |
+| `TIMELINE_POST_KEYWORD_SOURCE` | `simple` | キーワード抽出方式: `simple`（正規表現+漢字連）/ `yahoo`（Yahoo形態素解析API） |
 | `EVENT_POST_ENABLED` | `TRUE` | イベント（記念日）投稿 |
 | `HOROSCOPE_ENABLED` | `FALSE` | 星座占い投稿 |
 | `HOROSCOPE_HOUR` | `7` | 占い投稿時刻 |
@@ -258,7 +258,7 @@ AI_INPUT_MAX_CHARS     = 2500            # 入力テキストの最大文字数
 | `POLL_CHANCE` | `50` | 投票投稿の実行確率（%） |
 | `POLL_EXPIRE_HOURS` | `3` | 投票締め切り時間（時間） |
 | `POLL_TIMELINE_TYPE` | `local` | 投票選択肢抽出用 TL 種別: `local` / `home` / `hybrid` / `global` |
-| `POLL_KEYWORD_SOURCE` | `simple` | 投票選択肢のキーワード抽出方式: `simple`（正規表現）/ `yahoo`（Yahoo形態素解析API） |
+| `POLL_KEYWORD_SOURCE` | `simple` | 投票選択肢のキーワード抽出方式: `simple`（正規表現+漢字連）/ `yahoo`（Yahoo形態素解析API） |
 
 ### フォロー・返信設定
 
