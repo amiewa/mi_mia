@@ -371,47 +371,170 @@ function processPollPost(config) {
   var sheet = SS.getSheetByName(SHEET.POLL);
   if (!sheet || sheet.getLastRow() < 2) return;
 
-  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
-  var candidates = [];
+  var numCols = Math.max(sheet.getLastColumn(), 3);
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, numCols).getValues();
+  var questions = [], allPrefixes = [], items = [];
   for (var i = 0; i < data.length; i++) {
-    var question = String(data[i][0]).trim();
-    if (question) {
-      candidates.push({
-        question: question,
-        prefix: String(data[i][1] || '').trim()
-      });
-    }
+    var q = String(data[i][0] || '').trim();
+    var p = String(data[i][1] || '').trim();
+    var it = String(data[i][2] || '').trim();
+    if (q) questions.push({ question: q, prefix: p });
+    else if (p) allPrefixes.push(p);
+    if (it) items.push(it);
   }
+  questions.forEach(function(qObj) { if (qObj.prefix) allPrefixes.push(qObj.prefix); });
 
-  if (candidates.length === 0) return;
+  if (questions.length === 0 && items.length < 4) return;
 
-  // TLからキーワード抽出して選択肢を生成
-  var choices = extractPollChoices_(config);
-  if (choices.length < 2) return;
-
-  var selected = candidates[Math.floor(Math.random() * candidates.length)];
-  var text = selected.question;
-
-  // prefix がある場合は各選択肢にランダムなprefixを付与する
-  var prefixes = candidates.map(function(c) { return c.prefix; }).filter(function(p) { return p !== ''; });
-  var pollChoices = choices.slice(0, 4);
-  if (prefixes.length > 0) {
-    pollChoices = pollChoices.map(function(c) {
-      var p = prefixes[Math.floor(Math.random() * prefixes.length)];
-      return p + c;
-    });
-  }
+  var mode = String(config.POLL_MODE || 'tl_word').toLowerCase();
+  var result = pickPollContent_(config, mode, questions, items, allPrefixes);
+  if (!result) return;
 
   var expireHours = parseFloat(config.POLL_EXPIRE_HOURS) || 3;
   var poll = {
-    choices: pollChoices, // Misskey の上限は4選択肢
+    choices: result.choices,
     expiredAfter: Math.round(expireHours * 3600000)
   };
 
-  var note = postNote(config, text, { postType: 'poll', poll: poll });
+  var note = postNote(config, result.question, { postType: 'poll', poll: poll });
   if (note) {
     setLastRunTime_('POLL');
   }
+}
+
+/**
+ * POLL_MODE に応じた { question, choices } を返す。全モード失敗時は null。
+ * @param {Object} config
+ * @param {string} mode 'tl_word' | 'static' | 'ai'
+ * @param {Array<{question:string,prefix:string}>} questions
+ * @param {string[]} items  C列スタティックアイテム
+ * @param {string[]} prefixes  全prefix配列
+ * @returns {{question:string,choices:string[]}|null}
+ * @private
+ */
+function pickPollContent_(config, mode, questions, items, prefixes) {
+  if (mode === 'static') {
+    return pickStatic_(questions, items, prefixes);
+  }
+
+  if (mode === 'ai') {
+    var aiResult = generatePollByAi_();
+    if (aiResult) return aiResult;
+    if (config._forceTest) Logger.log('[POLL ai] AI生成失敗 → static フォールバック');
+    return pickStatic_(questions, items, prefixes);
+  }
+
+  // tl_word（デフォルト）
+  var choices = extractPollChoices_(config);
+  if (choices.length < 2) {
+    if (config._forceTest) Logger.log('[POLL tl_word] 選択肢不足 → static フォールバック');
+    return pickStatic_(questions, items, prefixes);
+  }
+
+  // 4件全て2文字以下なら2件をstaticに置換
+  var four = choices.slice(0, 4);
+  if (items.length > 0 && four.length >= 4 && four.every(function(c) { return c.length <= 2; })) {
+    if (config._forceTest) Logger.log('[POLL tl_word] 2文字短語のみ → staticから2件混入');
+    four = mixWithStatic_(four, items, 2);
+  }
+
+  if (questions.length === 0) return null;
+  var selected = questions[Math.floor(Math.random() * questions.length)];
+  return { question: selected.question, choices: applyPrefixes_(four, prefixes) };
+}
+
+/**
+ * C列アイテムからランダム4件 + A列ランダム質問で結果を生成。
+ * items が 4 件未満なら null。
+ * @private
+ */
+function pickStatic_(questions, items, prefixes) {
+  if (items.length < 4) return null;
+
+  var pool = items.slice();
+  var chosen = [];
+  for (var i = 0; i < 4 && pool.length > 0; i++) {
+    var idx = Math.floor(Math.random() * pool.length);
+    chosen.push(pool.splice(idx, 1)[0]);
+  }
+
+  var qText = questions.length > 0
+    ? questions[Math.floor(Math.random() * questions.length)].question
+    : chosen[0] + 'といえば？';
+
+  return { question: qText, choices: applyPrefixes_(chosen, prefixes) };
+}
+
+/**
+ * choices4 の中からランダムに replaceCount 件を items からの語に置換する。
+ * @param {string[]} choices4 長さ4の配列
+ * @param {string[]} items
+ * @param {number} replaceCount
+ * @returns {string[]}
+ * @private
+ */
+function mixWithStatic_(choices4, items, replaceCount) {
+  var result = choices4.slice();
+  var available = items.filter(function(it) { return choices4.indexOf(it) === -1; });
+  if (available.length === 0) available = items.slice();
+
+  // 置換するインデックスをランダムに選ぶ
+  var indices = [0, 1, 2, 3];
+  for (var i = indices.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = indices[i]; indices[i] = indices[j]; indices[j] = tmp;
+  }
+  var toReplace = indices.slice(0, replaceCount);
+
+  toReplace.forEach(function(idx) {
+    if (available.length === 0) return;
+    var ri = Math.floor(Math.random() * available.length);
+    result[idx] = available.splice(ri, 1)[0];
+  });
+  return result;
+}
+
+/**
+ * AI（callLLM）で質問文と4択を生成する。失敗時は null。
+ * @param {Object} config
+ * @returns {{question:string,choices:string[]}|null}
+ * @private
+ */
+function generatePollByAi_() {
+  try {
+    var systemPrompt = getCharacterPrompt_();
+    var userPrompt = 'キャラクターとして、日常的なテーマで4択アンケートを1つ考えてください。\n'
+      + '以下のJSON形式だけで回答してください（説明不要）。\n'
+      + '{"question":"質問文(35文字以内)","choices":["選択肢1","選択肢2","選択肢3","選択肢4"]}\n'
+      + '【絶対厳守】JSONデータ内に改行やダブルクォーテーションを含めないこと。';
+
+    var raw = callLLM('poll', userPrompt, systemPrompt);
+    if (!raw) return null;
+
+    var cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').replace(/\r?\n/g, '').trim();
+    var parsed = JSON.parse(cleaned);
+    if (!parsed.question || !Array.isArray(parsed.choices) || parsed.choices.length < 2) return null;
+    return { question: parsed.question, choices: parsed.choices.slice(0, 4) };
+  } catch (e) {
+    logError('generatePollByAi_', e.message);
+    return null;
+  }
+}
+
+/**
+ * 選択肢リストに対してランダムな prefix を付与する。
+ * prefixes が空なら付与しない。
+ * @param {string[]} choices
+ * @param {string[]} prefixes
+ * @returns {string[]}
+ * @private
+ */
+function applyPrefixes_(choices, prefixes) {
+  if (!prefixes || prefixes.length === 0) return choices;
+  return choices.map(function(c) {
+    var p = prefixes[Math.floor(Math.random() * prefixes.length)];
+    return p + c;
+  });
 }
 
 /**
@@ -619,7 +742,7 @@ function processHoroscope(config) {
 
   // AI占いモード
   if (String(config.HOROSCOPE_USE_AI).toUpperCase() === 'TRUE') {
-    text = generateAIHoroscope_(config);
+    text = generateAIHoroscope_();
   }
 
   // フォールバック: スコアベース
@@ -641,7 +764,7 @@ function processHoroscope(config) {
  * @returns {string|null} 占いテキスト
  * @private
  */
-function generateAIHoroscope_(config) {
+function generateAIHoroscope_() {
   var systemPrompt = getCharacterPrompt_();
   var todayStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
 

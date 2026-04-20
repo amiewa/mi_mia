@@ -13,6 +13,8 @@ function onOpen() {
     .addSeparator()
     .addItem('APIトークン管理', 'manageApiTokens')
     .addSeparator()
+    .addItem('台詞の自動生成', 'showGenerateDialog')
+    .addSeparator()
     .addSubMenu(SpreadsheetApp.getUi().createMenu('手動テスト実行')
       .addItem('ランダム投稿', 'testProcessRandomPost')
       .addItem('イベント投稿', 'testProcessEventPost')
@@ -124,6 +126,7 @@ function setupSpreadsheet() {
         ['AI_FP_HOROSCOPE', '', '占い用プロバイダ上書き'],
         ['AI_FP_TIMELINE_POST', '', 'TL連動投稿用プロバイダ上書き'],
         ['AI_FP_POLL', '', '投票用プロバイダ上書き'],
+        ['AI_FP_AUTOGEN', '', '台詞自動生成用プロバイダ上書き'],
         ['POSTING_VISIBILITY', 'home', '投稿公開範囲 (public/home/followers)'],
         ['POSTING_NIGHT_START', '23', '夜間開始時刻'],
         ['POSTING_NIGHT_END', '6', '夜間終了時刻'],
@@ -177,7 +180,8 @@ function setupSpreadsheet() {
         ['REPLY_MODE', 'no_ai', 'リプライモード: no_ai（キーワード応答のみ）/ ai（LLM優先）'],
         ['TIMELINE_POST_MODE', 'template', 'TL連動投稿モード: template / ai'],
         ['TIMELINE_POST_KEYWORD_SOURCE', 'simple', 'キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）'],
-        ['POLL_KEYWORD_SOURCE', 'simple', 'POLL用キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）']
+        ['POLL_KEYWORD_SOURCE', 'simple', 'POLL用キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）'],
+        ['POLL_MODE', 'tl_word', 'POLL選択肢生成モード: tl_word / static / ai']
       ]
     },
     {
@@ -229,7 +233,25 @@ function setupSpreadsheet() {
     },
     {
       name: SHEET.POLL,
-      headers: ['質問文', '接頭辞(Prefix)']
+      headers: ['質問文', '接頭辞(Prefix)', 'アイテム'],
+      defaultData: [
+        ['今日のごほうびスイーツは？',   '世界一の',     'ミルクレープ'],
+        ['一番幸せを感じる甘いものは？', 'とろける',     'ティラミス'],
+        ['今すぐ食べたいのは？',         '魔法の',       'モンブラン'],
+        ['カフェで頼むなら？',           'ふわふわの',   'ショートケーキ'],
+        ['差し入れにもらって嬉しいのは？', '禁断の',     'マカロン'],
+        ['夜中にこっそり食べたいのは？', '至高の',       'シュークリーム'],
+        ['季節限定で気になるのは？',     '伝説の',       'パンケーキ'],
+        ['雨の日に食べたくなるのは？',   '罪深い',       'クロワッサン'],
+        ['友達とシェアしたいのは？',     'ご褒美の',     'プリン'],
+        ['お祝いの日に欲しいのは？',     '限定の',       'タルト'],
+        ['コンビニで思わず手が伸びるのは？', '黄金の',   'クッキー'],
+        ['疲れた時に救われるのは？',     '究極の',       'パフェ'],
+        ['朝食に出てきたら嬉しいのは？', '神レベルの',   'ドーナツ'],
+        ['手土産に持っていくなら？',     '幻の',         'ロールケーキ'],
+        ['一生に一度の贅沢なら？',       '天使の',       'チョコレート'],
+        ['クリスマスに食べたいのは？',   '悪魔的な',     'アイスクリーム']
+      ]
     },
     {
       name: SHEET.REACTION,
@@ -356,7 +378,9 @@ function setupSpreadsheet() {
       ['REPLY_MODE', 'no_ai', 'リプライモード: no_ai（キーワード応答のみ）/ ai（LLM優先）'],
       ['TIMELINE_POST_MODE', 'template', 'TL連動投稿モード: template / ai'],
       ['TIMELINE_POST_KEYWORD_SOURCE', 'simple', 'キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）'],
-      ['POLL_KEYWORD_SOURCE', 'simple', 'POLL用キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）']
+      ['POLL_KEYWORD_SOURCE', 'simple', 'POLL用キーワード抽出方式: simple（正規表現）/ yahoo（Yahoo API）'],
+      ['POLL_MODE', 'tl_word', 'POLL選択肢生成モード: tl_word / static / ai'],
+      ['AI_FP_AUTOGEN', '', '台詞自動生成用プロバイダ上書き']
     ];
     for (var ns = 0; ns < newSettings.length; ns++) {
       if (existingKeys.indexOf(newSettings[ns][0]) === -1) {
@@ -378,6 +402,16 @@ function setupSpreadsheet() {
         'TL連動テンプレート',
         '{keyword}……　きになる～\n{keyword}かあ……　ん～なんだろ\n{keyword}ってみんな言ってる～\nTLに{keyword}がいっぱい～'
       ]);
+    }
+  }
+
+  // --- 投票質問文シートに C 列「アイテム」を追加（v2.7.0 マイグレーション）---
+  var pollSheet = SS.getSheetByName(SHEET.POLL);
+  if (pollSheet) {
+    var pollHeaders = pollSheet.getRange(1, 1, 1, pollSheet.getLastColumn()).getValues()[0];
+    if (pollHeaders.length < 3 || String(pollHeaders[2]).trim() === '') {
+      pollSheet.getRange(1, 3).setValue('アイテム');
+      pollSheet.getRange(1, 3).setFontWeight('bold');
     }
   }
 
@@ -434,7 +468,7 @@ function validateConfig() {
   }
 
   // function_providers の有効値チェック
-  var fpKeys = ['AI_FP_REPLY', 'AI_FP_HOROSCOPE', 'AI_FP_TIMELINE_POST', 'AI_FP_POLL'];
+  var fpKeys = ['AI_FP_REPLY', 'AI_FP_HOROSCOPE', 'AI_FP_TIMELINE_POST', 'AI_FP_POLL', 'AI_FP_AUTOGEN'];
   for (var i = 0; i < fpKeys.length; i++) {
     var val = config[fpKeys[i]];
     if (val && validProviders.indexOf(val) === -1) {
@@ -519,6 +553,30 @@ function validateConfig() {
     var yahooIdPoll = PropertiesService.getScriptProperties().getProperty('YAHOO_CLIENT_ID');
     if (!yahooIdPoll) {
       errors.push('POLL_KEYWORD_SOURCE=yahoo ですが ScriptProperties に YAHOO_CLIENT_ID が未設定です');
+    }
+  }
+
+  // --- v2.7.0 追加チェック ---
+
+  var pollMode = String(config.POLL_MODE || 'tl_word').toLowerCase();
+  if (pollMode !== 'tl_word' && pollMode !== 'static' && pollMode !== 'ai') {
+    errors.push('POLL_MODE は "tl_word", "static", "ai" のいずれかを指定してください（現在: ' + config.POLL_MODE + '）');
+  }
+  if (pollMode === 'ai' && (!config.AI_PROVIDER || config.AI_PROVIDER === 'none')) {
+    warnings.push('POLL_MODE=ai ですが AI_PROVIDER=none です。static にフォールバックします');
+  }
+  if (pollMode === 'static' || pollMode === 'ai') {
+    var pollSheetCheck = SS.getSheetByName(SHEET.POLL);
+    if (pollSheetCheck) {
+      var pollLastRow = pollSheetCheck.getLastRow();
+      var hasStaticItems = false;
+      if (pollLastRow >= 2) {
+        var pollColC = pollSheetCheck.getRange(2, 3, pollLastRow - 1, 1).getValues();
+        hasStaticItems = pollColC.some(function(r) { return String(r[0]).trim() !== ''; });
+      }
+      if (!hasStaticItems) {
+        errors.push('POLL_MODE=' + pollMode + ' ですが 投票質問文シートの C 列（アイテム）が空です');
+      }
     }
   }
 

@@ -495,7 +495,7 @@ function filterTimelineNotes(notes, config) {
 /**
  * 機能名に応じたプロバイダでLLMを呼び出す。
  * AI_PROVIDER=none またはプロバイダ未設定の場合は null を返す。
- * @param {string} functionName 'reply' | 'horoscope' | 'timeline_post' | 'poll'
+ * @param {string} functionName 'reply' | 'horoscope' | 'timeline_post' | 'poll' | 'autogen'
  * @param {string} userPrompt ユーザープロンプト
  * @param {string} systemPrompt システムプロンプト
  * @returns {string|null} 生成テキスト。LLM無効/エラー時は null
