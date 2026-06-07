@@ -1066,6 +1066,7 @@ function executeAutoDelete(config) {
  * @param {Object} config 設定オブジェクト
  */
 function runFollowSync(config) {
+  if (!config) config = getConfig();
   if (String(config.FOLLOW_AUTO_UNFOLLOW_BACK).toUpperCase() !== 'TRUE') return;
   if (!isTimeSafe(120000)) return;
 
