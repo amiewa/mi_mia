@@ -315,6 +315,7 @@ function postNote(config, text, options) {
     if (options.replyId) params.replyId = options.replyId;
     if (options.poll) params.poll = options.poll;
     if (options.cw) params.cw = options.cw;
+    if (options.visibleUserIds) params.visibleUserIds = options.visibleUserIds;
   }
 
   try {

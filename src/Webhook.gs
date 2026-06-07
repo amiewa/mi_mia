@@ -98,6 +98,10 @@ function handleMention(body, config) {
   var userId = note.user && note.user.id;
   if (!noteId || !userId) return;
 
+  // 元ノートの公開範囲を算出（返信時に継承する）
+  var ownUserId = config.OWN_USER_ID || '';
+  var visibilityOpts = resolveReplyVisibility_(note, userId, ownUserId, config);
+
   // --- 重複防止 第1防衛: CacheService ---
   var cache = CacheService.getScriptCache();
   var cacheKey = 'm_' + noteId;
@@ -133,7 +137,7 @@ function handleMention(body, config) {
   // NGワードチェック
   var ngWords = loadNGWords(config);
   if (containsNGWord(cleanedText, ngWords)) {
-    replyWithFallback_(config, noteId);
+    replyWithFallback_(config, noteId, visibilityOpts);
     incrementCounter('REPLY');
     return;
   }
@@ -234,7 +238,7 @@ function handleMention(body, config) {
 
   // キーワード応答も該当なし → フォールバック定型文
   if (!reply) {
-    replyWithFallback_(config, noteId);
+    replyWithFallback_(config, noteId, visibilityOpts);
     incrementCounter('REPLY');
     return;
   }
@@ -242,7 +246,6 @@ function handleMention(body, config) {
   // --- 重複防止 第3防衛: Misskey API で既返信チェック ---
   try {
     var existingReplies = callMisskeyApi('notes/replies', { noteId: noteId, limit: 5 });
-    var ownUserId = config.OWN_USER_ID || '';
     for (var r = 0; r < existingReplies.length; r++) {
       if (existingReplies[r].user && existingReplies[r].user.id === ownUserId) {
         return;
@@ -252,11 +255,10 @@ function handleMention(body, config) {
     // チェック失敗は無視して続行
   }
 
-  // 返信投稿
-  var postedNote = postNote(config, reply, {
-    replyId: noteId,
-    postType: 'reply'
-  });
+  // 返信投稿（元ノートの公開範囲を継承）
+  var replyOpts = { replyId: noteId, postType: 'reply', visibility: visibilityOpts.visibility };
+  if (visibilityOpts.visibleUserIds) replyOpts.visibleUserIds = visibilityOpts.visibleUserIds;
+  var postedNote = postNote(config, reply, replyOpts);
 
   if (postedNote) {
     incrementCounter('REPLY');
@@ -302,13 +304,55 @@ function getAffinityRank_(config, talkCount) {
  * フォールバック定型文で返信する。
  * @param {Object} config 設定オブジェクト
  * @param {string} noteId 返信先ノートID
+ * @param {Object} [visibilityOptions={}] visibility / visibleUserIds 等の公開範囲オプション
  * @private
  */
-function replyWithFallback_(config, noteId) {
+function replyWithFallback_(config, noteId, visibilityOptions) {
   var text = getFallbackReply_();
   if (text) {
-    postNote(config, text, { replyId: noteId, postType: 'reply' });
+    var opts = { replyId: noteId, postType: 'reply' };
+    if (visibilityOptions) {
+      if (visibilityOptions.visibility) opts.visibility = visibilityOptions.visibility;
+      if (visibilityOptions.visibleUserIds) opts.visibleUserIds = visibilityOptions.visibleUserIds;
+    }
+    postNote(config, text, opts);
   }
+}
+
+/**
+ * 返信の公開範囲を元ノートから算出する。
+ * - specified（DM）→ specified で送信者・元 visibleUserIds を引き継ぐ
+ * - followers（フォロワー限定）→ followers
+ * - それ以外 → config.POSTING_VISIBILITY（デフォルト: home）
+ * @param {Object} note 元ノートオブジェクト
+ * @param {string} senderUserId 送信者のユーザーID
+ * @param {string} ownUserId 自分自身のユーザーID（visibleUserIds から除外）
+ * @param {Object} config 設定オブジェクト
+ * @returns {{ visibility: string, visibleUserIds?: string[] }}
+ * @private
+ */
+function resolveReplyVisibility_(note, senderUserId, ownUserId, config) {
+  var vis = note && note.visibility;
+
+  if (vis === 'specified') {
+    // 送信者 + 元ノートの visibleUserIds をマージ（自分は除外）
+    var ids = {};
+    if (senderUserId) ids[senderUserId] = true;
+    var existing = note.visibleUserIds;
+    if (Array.isArray(existing)) {
+      for (var i = 0; i < existing.length; i++) {
+        if (existing[i] && existing[i] !== ownUserId) ids[existing[i]] = true;
+      }
+    }
+    return { visibility: 'specified', visibleUserIds: Object.keys(ids) };
+  }
+
+  if (vis === 'followers') {
+    return { visibility: 'followers' };
+  }
+
+  // public / home / 未定義 → 設定に従う
+  return { visibility: config.POSTING_VISIBILITY || 'home' };
 }
 
 /**

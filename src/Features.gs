@@ -1078,15 +1078,25 @@ function runFollowSync(config) {
   try {
     // API からフォロワー・フォロー一覧を取得
     var followerIds = {};
-    var followers = fetchAllFollowers_(config, ownUserId);
-    for (var i = 0; i < followers.length; i++) {
-      followerIds[followers[i].id] = followers[i].username || '';
+    var followerResult = fetchAllFollowers_(config, ownUserId);
+    var followerList = followerResult.users;
+    var followerIncomplete = followerResult.incomplete;
+    for (var i = 0; i < followerList.length; i++) {
+      followerIds[followerList[i].id] = followerList[i].username || '';
     }
 
     var followingIds = {};
-    var following = fetchAllFollowing_(config, ownUserId);
-    for (var j = 0; j < following.length; j++) {
-      followingIds[following[j].id] = following[j].username || '';
+    var followingResult = fetchAllFollowing_(config, ownUserId);
+    var followingList = followingResult.users;
+    var followingIncomplete = followingResult.incomplete;
+    for (var j = 0; j < followingList.length; j++) {
+      followingIds[followingList[j].id] = followingList[j].username || '';
+    }
+
+    // どちらかのリストが不完全な場合はシートの既存 iAmFollowing 値を優先する
+    var fetchIncomplete = followerIncomplete || followingIncomplete;
+    if (fetchIncomplete) {
+      logError('runFollowSync', 'API取得が時間切れで不完全。既存 iAmFollowing 値を温存します。');
     }
 
     // フォロー管理シート読み込み
@@ -1121,7 +1131,9 @@ function runFollowSync(config) {
       var inFollowers = followerIds.hasOwnProperty(uid);
       var inSheet = sheetMap.hasOwnProperty(uid);
       var username = followerIds[uid] || (inSheet ? sheetMap[uid].username : '');
-      var iAmFollowing = followingIds.hasOwnProperty(uid);
+      // 取得が不完全な場合はシートの既存値を優先し、誤った FALSE 上書きを防ぐ
+      var iAmFollowing = followingIds.hasOwnProperty(uid) ||
+        (fetchIncomplete && inSheet && sheetMap[uid].iAmFollowing);
 
       if (inFollowers && !inSheet) {
         // 新規フォロワー
@@ -1134,15 +1146,30 @@ function runFollowSync(config) {
         var entry = sheetMap[uid];
         var newMissing = entry.missingCount + 1;
 
-        if (newMissing >= graceCycles && iAmFollowing) {
-          // grace_cycles 超過 → アンフォロー
-          try {
-            callMisskeyApi('following/delete', { userId: uid });
-            incrementCounter('UNFOLLOW');
-          } catch (e) {
-            logError('runFollowSync', 'アンフォロー失敗: ' + uid + ' - ' + e.message);
+        if (newMissing >= graceCycles) {
+          // grace_cycles 超過 → アンフォロー対象か権威確認
+          // バルク取得（users/following）は取得漏れが起きうるため、
+          // 閾値到達時は users/relation で実際の関係を個別確認する
+          var stillFollowing = followingIds.hasOwnProperty(uid);
+          if (!stillFollowing) {
+            // バルク取得に含まれない → 個別 API で権威確認
+            try {
+              stillFollowing = normalizeRelation(
+                callMisskeyApi('users/relation', { userId: uid })
+              ).isFollowing;
+            } catch (e) {
+              logError('runFollowSync', '関係確認失敗: ' + uid + ' - ' + e.message);
+            }
           }
-          // シートから削除
+          if (stillFollowing) {
+            try {
+              callMisskeyApi('following/delete', { userId: uid });
+              incrementCounter('UNFOLLOW');
+            } catch (e) {
+              logError('runFollowSync', 'アンフォロー失敗: ' + uid + ' - ' + e.message);
+            }
+          }
+          // フォロワーでもフォロー中でもない関係はシートから削除
           continue;
         }
 
@@ -1166,7 +1193,7 @@ function runFollowSync(config) {
  * 全フォロワーをページネーション対応で取得する。
  * @param {Object} config 設定オブジェクト
  * @param {string} userId ユーザーID
- * @returns {Object[]} フォロワー配列
+ * @returns {{ users: Object[], incomplete: boolean }}
  * @private
  */
 function fetchAllFollowers_(config, userId) {
@@ -1177,7 +1204,7 @@ function fetchAllFollowers_(config, userId) {
  * 全フォロー中ユーザーをページネーション対応で取得する。
  * @param {Object} config 設定オブジェクト
  * @param {string} userId ユーザーID
- * @returns {Object[]} フォロー中ユーザー配列
+ * @returns {{ users: Object[], incomplete: boolean }}
  * @private
  */
 function fetchAllFollowing_(config, userId) {
@@ -1188,16 +1215,23 @@ function fetchAllFollowing_(config, userId) {
  * ページネーション付きAPI取得の共通関数。
  * @param {string} endpoint APIエンドポイント
  * @param {string} userId ユーザーID
- * @returns {Object[]} ユーザー配列
+ * @returns {{ users: Object[], incomplete: boolean }} ユーザー配列と不完全フラグ
  * @private
  */
 function fetchPaginated_(endpoint, userId) {
   var all = [];
   var untilId = null;
   var limit = 100;
+  var incomplete = false;
 
-  for (var page = 0; page < 10; page++) { // 最大1000ユーザー
-    if (!isTimeSafe(60000)) break;
+  // ページ上限を 500 ページ（最大 5 万件）に引き上げ。
+  // isTimeSafe による途中 break 時は incomplete=true を返し、
+  // 呼び出し元が不完全なリストに基づく誤動作を防げるようにする。
+  for (var page = 0; page < 500; page++) {
+    if (!isTimeSafe(60000)) {
+      incomplete = true;
+      break;
+    }
 
     var params = { userId: userId, limit: limit };
     if (untilId) params.untilId = untilId;
@@ -1215,7 +1249,7 @@ function fetchPaginated_(endpoint, userId) {
     untilId = result[result.length - 1].id;
   }
 
-  return all;
+  return { users: all, incomplete: incomplete };
 }
 
 // --------------- キャラクタープロンプト取得 ---------------
