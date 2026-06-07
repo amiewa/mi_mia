@@ -1120,7 +1120,9 @@ function runFollowSync(config) {
       };
     }
 
-    var graceCycles = parseInt(config.FOLLOW_UNFOLLOW_GRACE_CYCLES) || 2;
+    // parseInt('0') || 2 は 2 になるため isNaN で判定する（0 を有効値として扱う）
+    var rawCycles = parseInt(config.FOLLOW_UNFOLLOW_GRACE_CYCLES);
+    var graceCycles = isNaN(rawCycles) ? 2 : rawCycles;
     var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
     var newData = [];
     // 全ユーザーを処理
