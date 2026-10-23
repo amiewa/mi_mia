@@ -843,7 +843,7 @@ function generateScoreHoroscope_() {
 
   var stars = function (n) {
     var s = '';
-    for (var i = 0; i < n; i++) s += '*';
+    for (var i = 0; i < n; i++) s += '★'; // '*' はMFMの太字記法として解釈され表示が崩れる
     return s;
   };
 
